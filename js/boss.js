@@ -104,10 +104,15 @@
     }
   };
   DA.drawBoss = function (ctx, b) {
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';               // grounding shadow
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + b.r * 0.85, b.r * 0.95, b.r * 0.36, 0, 0, 7); ctx.fill();
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.fillStyle = b.color;                          // body
     ctx.beginPath(); ctx.arc(0, 0, b.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
     ctx.fillStyle = '#f2f2e9';                        // shirt
     ctx.beginPath(); ctx.arc(0, b.r * 0.35, b.r * 0.5, 0, 7); ctx.fill();
     if (b.type === 'executive') {

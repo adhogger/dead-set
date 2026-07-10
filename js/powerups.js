@@ -95,6 +95,10 @@
       var blink = pu.t < 3 && Math.floor(pu.t * 5) % 2 === 0; // hurry-up blink
       if (blink) continue;
       var pulse = 1 + Math.sin(performance.now() / 150) * 0.12;
+      ctx.globalAlpha = 0.16;                         // beacon glow on the floor
+      ctx.fillStyle = colorOf(pu.type);
+      ctx.beginPath(); ctx.arc(pu.x, pu.y, 24 * pulse, 0, 7); ctx.fill();
+      ctx.globalAlpha = 1;
       ctx.save();
       ctx.translate(pu.x, pu.y);
       ctx.scale(pulse, pulse);

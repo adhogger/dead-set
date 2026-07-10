@@ -218,17 +218,69 @@
     }
   }
 
+  // --- cached scenery (built once, redrawn cheaply every frame) ---
+  var floorPatterns = {};
+  function floorPattern(color) {
+    if (floorPatterns[color]) return floorPatterns[color];
+    var t = document.createElement('canvas'); t.width = 80; t.height = 80;
+    var g = t.getContext('2d');
+    g.fillStyle = color; g.fillRect(0, 0, 80, 80);
+    g.fillStyle = 'rgba(255,255,255,0.02)';           // checker sheen
+    g.fillRect(0, 0, 40, 40); g.fillRect(40, 40, 40, 40);
+    g.strokeStyle = 'rgba(0,0,0,0.16)'; g.lineWidth = 1;  // tile grout
+    g.strokeRect(0.5, 0.5, 40, 40); g.strokeRect(40.5, 40.5, 40, 40);
+    g.strokeRect(40.5, 0.5, 40, 40); g.strokeRect(0.5, 40.5, 40, 40);
+    floorPatterns[color] = ctx.createPattern(t, 'repeat');
+    return floorPatterns[color];
+  }
+  var vignette = (function () {
+    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    var g = c.getContext('2d');
+    var grad = g.createRadialGradient(DA.W / 2, DA.H / 2, DA.H * 0.42, DA.W / 2, DA.H / 2, DA.H * 0.95);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
+    return c;
+  })();
+  var scanlines = (function () {
+    var c = document.createElement('canvas'); c.width = 8; c.height = 4;
+    var g = c.getContext('2d');
+    g.fillStyle = 'rgba(0,0,0,0.13)'; g.fillRect(0, 2, 8, 2);
+    return c;
+  })();
+  var scanPattern = null;
+  function drawScreenFx(ctx) {
+    ctx.drawImage(vignette, 0, 0);
+    if (!scanPattern) scanPattern = ctx.createPattern(scanlines, 'repeat');
+    ctx.fillStyle = scanPattern;
+    ctx.fillRect(0, 0, DA.W, DA.H);
+  }
+
   function drawArena(ctx, st) {
     var A = DA.ARENA;
     ctx.fillStyle = '#2a2a38';                        // walls
     ctx.fillRect(0, 0, DA.W, DA.H);
-    ctx.fillStyle = (st.room && st.room.floor) || '#1c1c26'; // floor
+    ctx.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
     ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
     ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';     // game-show floor rings
     ctx.lineWidth = 3;
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
+    // sweeping studio spotlights
+    var sweep = performance.now() / 4000;
+    ctx.fillStyle = 'rgba(240, 235, 200, 0.045)';
+    [[A.x0, A.y0, sweep], [A.x1, A.y0, -sweep * 1.3 + 2]].forEach(function (s) {
+      var a = 0.9 + Math.sin(s[2]) * 0.55 + (s[0] > DA.W / 2 ? 1.35 : 0);
+      ctx.beginPath();
+      ctx.moveTo(s[0], s[1]);
+      ctx.arc(s[0], s[1], 900, a - 0.14, a + 0.14);
+      ctx.closePath(); ctx.fill();
+    });
+    // wall bevel: a lit inner edge
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
     var active = (st.waveManager && st.waveManager.activeDoors) || [];
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
@@ -408,11 +460,13 @@
       lines.push({ text: 'Esc pauses · M mutes', font: '15px monospace', color: '#8888a0', y: 572 });
       drawCenteredScreen(ctx, lines);
       DA.drawFxOver(ctx);
+      drawScreenFx(ctx);
       if (showDebug) drawDebug(ctx);
       return;
     }
 
     drawWorld(ctx, st);
+    drawScreenFx(ctx);
     drawHud(ctx, st);
     if (st.mode === 'playing' && st.roomCleared && st.room.map) drawMap(ctx, st);
     if (showDebug) drawDebug(ctx);
@@ -456,6 +510,9 @@
       drawCenteredScreen(ctx, w);
     }
   }
+
+  // manual single-step for headless verification (background tabs pause rAF)
+  DA.debugFrame = function (dt) { update(dt || 1 / 60); render(ctx); };
 
   requestAnimationFrame(frame);
 })();

@@ -133,9 +133,15 @@
       if (e.isBoss) { if (DA.drawBoss) DA.drawBoss(ctx, e); continue; }
       if (e.grace > 0) ctx.globalAlpha = 0.45; // emerging from the door, harmless
       else if (e.type === 'stalker' && DA.stalkerFaint(e)) ctx.globalAlpha = 0.18;
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';       // grounding shadow
+      ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
+      var br = e.r * (1 + Math.sin(e.wobble * 2) * 0.06); // shuffling bob
       ctx.fillStyle = lit ? '#fff3b0' : e.color; // fuse lit: strobe warning
-      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(e.x, e.y, br, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';     // body outline
+      ctx.lineWidth = 2;
+      ctx.stroke();
       ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size
       var eye = e.r * 0.28, off = e.r * 0.38;
       ctx.fillRect(e.x - off - eye / 2, e.y - e.r * 0.25, eye, eye);

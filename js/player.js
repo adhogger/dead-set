@@ -41,6 +41,8 @@
   };
   DA.drawPlayer = function (ctx, p) {
     if (p.invuln > 0 && Math.floor(p.invuln * 10) % 2 === 0) return; // blink when hit
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';               // grounding shadow
+    ctx.beginPath(); ctx.ellipse(p.x, p.y + p.r * 0.85, p.r * 0.9, p.r * 0.36, 0, 0, 7); ctx.fill();
     ctx.save();
     ctx.translate(p.x, p.y);
     if (p.bootsT > 0) {                              // boots trail
@@ -58,10 +60,20 @@
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = '#f2f2e9';                       // body
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
     ctx.fillStyle = '#333';                          // gun
     ctx.fillRect(p.r - 3, -2.5, 11, 5);
+    var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // muzzle flash right after a shot
+    if (p.firing && p.fireCooldown > g.rate - 0.05) {
+      ctx.fillStyle = 'rgba(255, 240, 150, 0.9)';
+      ctx.beginPath(); ctx.arc(p.r + 11, 0, 5.5, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 200, 80, 0.25)';
+      ctx.beginPath(); ctx.arc(p.r + 11, 0, 13, 0, 7); ctx.fill();
+    }
     ctx.restore();
   };
 })();

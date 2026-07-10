@@ -40,10 +40,19 @@
     return g.pellets;
   };
   DA.drawBullets = function (ctx, arr) {
-    for (var i = 0; i < arr.length; i++) {
+    for (var i = 0; i < arr.length; i++) {       // glow halo pass
       var b = arr[i];
+      ctx.globalAlpha = 0.22;
       ctx.fillStyle = b.color || '#ffd94a';
-      ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    for (i = 0; i < arr.length; i++) {           // core pass
+      var c = arr[i];
+      ctx.fillStyle = c.color || '#ffd94a';
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.r * 0.45, 0, 7); ctx.fill();
     }
   };
 
