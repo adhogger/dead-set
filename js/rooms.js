@@ -5,6 +5,7 @@
   DA.START_ROOM = 'studio1';
   DA.ROOMS = {
     studio1: {
+      map: { x: 0, y: 0 },
       name: 'STUDIO 1', floor: '#1c1c26',
       exits: { E: 'greenroom', S: 'makeup' },
       waves: [
@@ -13,6 +14,7 @@
       ]
     },
     greenroom: {
+      map: { x: 1, y: 0 },
       name: 'THE GREEN ROOM', floor: '#1a2119',
       exits: { E: 'props', S: 'cafeteria' },
       waves: [
@@ -23,6 +25,7 @@
       ]
     },
     makeup: {
+      map: { x: 0, y: 1 },
       name: 'MAKEUP', floor: '#221a20',
       exits: { E: 'cafeteria', S: 'props' },
       waves: [
@@ -33,6 +36,7 @@
       ]
     },
     props: {
+      map: { x: 2, y: 0 },
       name: 'PROP DEPARTMENT', floor: '#20201a',
       exits: { S: 'controlroom', E: 'editing' },
       waves: [
@@ -44,6 +48,7 @@
       ]
     },
     cafeteria: {
+      map: { x: 1, y: 1 },
       name: 'STAFF CAFETERIA', floor: '#1a1f22',
       exits: { E: 'controlroom', N: 'editing' },
       waves: [
@@ -55,6 +60,7 @@
       ]
     },
     editing: {
+      map: { x: 3, y: 0 },
       name: 'EDITING BAY', floor: '#1d1a22',
       exits: { E: 'stage', S: 'controlroom' },
       waves: [
@@ -67,6 +73,7 @@
       ]
     },
     controlroom: {
+      map: { x: 2, y: 1 },
       name: 'CONTROL ROOM', floor: '#221d1a',
       exits: { E: 'stage', N: 'editing' },
       waves: [
@@ -79,11 +86,29 @@
       ]
     },
     stage: {
+      map: { x: 4, y: 0.5 },
       name: 'SOUND STAGE 5', floor: '#241a1a',
       exits: {},
       boss: true,
       waves: []
+    },
+    endless: {
+      name: 'ENDLESS ARENA', floor: '#161d1c',
+      exits: {},
+      endless: true,   // waves are generated forever by DA.endlessWave(n)
+      waves: []
     }
+  };
+
+  // Procedural wave for the Endless Arena. n starts at 0 and never stops.
+  DA.endlessWave = function (n) {
+    var groups = [{ type: 'shambler', count: 60 + n * 12,
+                    interval: Math.max(0.05, 0.09 - n * 0.002) }];
+    if (n >= 1) groups.push({ type: 'swarmer', count: 10 + n * 4, interval: 0.35 });
+    if (n >= 2) groups.push({ type: 'sprinter', count: 4 + n * 2, interval: 1.5,
+                              speed: Math.min(120 + n * 5, 180) });
+    if (n >= 4) groups.push({ type: 'brute', count: Math.floor(n / 2), interval: 7 });
+    return { doors: Math.min(1 + Math.floor(n / 3), 3), groups: groups };
   };
 
   DA.oppositeDir = function (dir) {
@@ -101,10 +126,10 @@
 
   DA.makeWaveManager = function (room) {
     return { room: room, wave: 0, spawners: null, activeDoors: null,
-             betweenTimer: 2, done: room.waves.length === 0 };
+             betweenTimer: 2, done: !room.endless && room.waves.length === 0 };
   };
   function startWave(wm) {
-    var wave = wm.room.waves[wm.wave];
+    var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
     wm.activeDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
     wm.spawners = wave.groups.map(function (g) {
       return { type: g.type, left: g.count, interval: g.interval, speed: g.speed, timer: 0.5 };
@@ -130,7 +155,7 @@
       wm.spawners = null;
       wm.activeDoors = null;
       wm.betweenTimer = 2.5;
-      if (wm.wave >= wm.room.waves.length) wm.done = true;
+      if (!wm.room.endless && wm.wave >= wm.room.waves.length) wm.done = true;
     }
   };
 })();

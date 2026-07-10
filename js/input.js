@@ -100,6 +100,15 @@
       if (keys.Enter || keys.Space) return true;
       return DA.input.state(DA.W / 2, DA.H / 2).firing;
     },
+    // is a specific gamepad button held right now? (9 = Start, 3 = Y/Triangle)
+    padButton: function (idx) {
+      var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (var i = 0; i < pads.length; i++) {
+        var pad = pads[i];
+        if (pad && pad.connected && pad.buttons[idx] && pad.buttons[idx].pressed) return true;
+      }
+      return false;
+    },
     gamepadConnected: function () {
       var pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) return true;

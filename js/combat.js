@@ -24,7 +24,14 @@
           if (b.pierce) b.hit.push(e);
           else st.bullets.splice(j, 1);
           e.hp -= (b.dmg || 1);
-          if (e.hp <= 0) { killed = true; break; }
+          if (st.stats) st.stats.hits++;
+          if (e.hp <= 0) {
+            if (st.stats && b.gunLabel) {
+              st.stats.killsByGun[b.gunLabel] = (st.stats.killsByGun[b.gunLabel] || 0) + 1;
+            }
+            killed = true;
+            break;
+          }
         }
       }
       if (killed) {

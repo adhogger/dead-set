@@ -10,9 +10,14 @@
   window.addEventListener('resize', fit);
   fit();
 
+  // localStorage can be blocked (private mode) — never let that crash the game
+  function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
+  function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+
   function enterRoom(st, roomId, entryDir) {
     st.roomId = roomId;
     st.room = DA.ROOMS[roomId];
+    st.visited[roomId] = true;
     st.enemies = [];
     st.bullets = [];
     st.enemyBullets = [];
@@ -21,6 +26,7 @@
     st.waveManager = DA.makeWaveManager(st.room);
     st.roomCleared = false;
     st.bossDead = false;
+    st.lastWave = 0;
     DA.fx.splats.length = 0;   // fresh floor for a fresh studio
     var p = st.player;
     if (entryDir) {            // walk in through the door we came from
@@ -40,7 +46,7 @@
     }
   }
 
-  function newGame() {
+  function newGame(startRoom) {
     DA.fx.particles.length = 0;
     DA.fx.splats.length = 0;
     DA.fx.popups.length = 0;
@@ -49,17 +55,29 @@
       mode: 'playing',
       player: DA.makePlayer(),
       score: 0, combo: 1, comboTimer: 0, kills: 0,
-      roomsCleared: 0, groanT: 3
+      roomsCleared: 0, groanT: 3, visited: {},
+      stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() }
     };
-    enterRoom(st, DA.START_ROOM, null);
+    enterRoom(st, startRoom || DA.START_ROOM, null);
     return st;
   }
 
   DA.state = { mode: 'title' };
-  var startWasHeld = false; // require a release between screens
+  var startWasHeld = false;   // require a release between screens
+  var endlessWasHeld = false;
+  var paused = false;
+  var pauseWasHeld = false;
 
-  var showDebug = false;    // G toggles a raw-gamepad readout for troubleshooting
-  window.addEventListener('keydown', function (e) { if (e.code === 'KeyG') showDebug = !showDebug; });
+  var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
+  window.addEventListener('keydown', function (e) {
+    if (e.code === 'KeyG') showDebug = !showDebug;
+    if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
+  });
+  var endlessKeyHeld = false;
+  window.addEventListener('keydown', function (e) { if (e.code === 'KeyE') endlessKeyHeld = true; });
+  window.addEventListener('keyup', function (e) { if (e.code === 'KeyE') endlessKeyHeld = false; });
+
+  function endlessUnlocked() { return load('deadset_ep1') === '1'; }
 
   function drawDebug(ctx) {
     var info = DA.input.debugInfo();
@@ -102,20 +120,45 @@
     }
   }
 
+  function endRun(st, won) {
+    st.mode = won ? 'winner' : 'gameover';
+    st.stats.seconds = Math.round((performance.now() - st.stats.start) / 1000);
+    var best = parseInt(load('deadset_best') || '0', 10);
+    st.newBest = st.score > best;
+    if (st.newBest) store('deadset_best', String(st.score));
+    if (won) store('deadset_ep1', '1');
+    if (st.room.endless) {
+      var bw = parseInt(load('deadset_best_waves') || '0', 10);
+      st.newBestWaves = st.waveManager.wave > bw;
+      if (st.newBestWaves) store('deadset_best_waves', String(st.waveManager.wave));
+    }
+    DA.announce(won ? "THAT'S A WRAP!" : 'CUT TO COMMERCIAL!');
+  }
+
   function update(dt) {
     var st = DA.state;
     var startHeld = DA.input.startHeld();
 
     if (st.mode !== 'playing') {
+      paused = false;
       if (startHeld && !startWasHeld) DA.state = newGame();
+      var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
+      if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
       startWasHeld = startHeld;
+      endlessWasHeld = endlessHeld;
       DA.updateFx(dt);
       return;
     }
     startWasHeld = startHeld;
 
+    // gamepad Start button pauses (edge-triggered)
+    var pauseHeld = DA.input.padButton(9);
+    if (pauseHeld && !pauseWasHeld) paused = !paused;
+    pauseWasHeld = pauseHeld;
+    if (paused) return;
+
     DA.updatePlayer(st.player, dt, st.enemies.length > 0);
-    DA.tryPlayerFire(st.player, st.bullets);
+    st.stats.shots += DA.tryPlayerFire(st.player, st.bullets);
     DA.updateBullets(st.bullets, dt);
     DA.updateWaves(st.waveManager, st.enemies, dt);
     var boss = findBoss(st);
@@ -127,6 +170,15 @@
     DA.updatePowerups(st, dt);
     DA.updateFx(dt);
 
+    // endless: the audience tosses a heart every 3rd wave survived
+    if (st.room.endless && st.waveManager.wave > st.lastWave) {
+      st.lastWave = st.waveManager.wave;
+      if (st.lastWave % 3 === 0) {
+        st.player.hearts = Math.min(st.player.hearts + 1, DA.MAX_HEARTS);
+        DA.announce('AUDIENCE GIFT: +1 HEART');
+      }
+    }
+
     // ambient groans while zombies are on set
     st.groanT -= dt;
     if (st.groanT <= 0) {
@@ -134,16 +186,9 @@
       if (st.enemies.length > 0 && DA.audio) DA.audio.groan();
     }
 
-    if (st.player.hearts <= 0) {
-      st.mode = 'gameover';
-      DA.announce('CUT TO COMMERCIAL!');
-      return;
-    }
+    if (st.player.hearts <= 0) { endRun(st, false); return; }
     if (st.room.boss) {
-      if (st.bossDead && st.enemies.length === 0) {
-        st.mode = 'winner';
-        DA.announce("THAT'S A WRAP!");
-      }
+      if (st.bossDead && st.enemies.length === 0) endRun(st, true);
     } else if (st.waveManager.done) {
       if (!st.roomCleared) {
         st.roomCleared = true;
@@ -193,25 +238,60 @@
     else { ctx.strokeStyle = '#4a3a40'; ctx.lineWidth = 2; ctx.stroke(); }
   }
 
+  // the studio map: shown while choosing an exit, and while paused
+  function drawMap(ctx, st) {
+    var ox = DA.W - 330, oy = DA.H - 130, sx = 62, sy = 56;
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.82)';
+    ctx.fillRect(ox - 34, oy - 44, 344, 122);
+    ctx.fillStyle = '#8888a0';
+    ctx.font = 'bold 13px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('STUDIO MAP', ox - 22, oy - 26);
+    ctx.strokeStyle = '#3a3a48';
+    ctx.lineWidth = 2;
+    var id, room;
+    for (id in DA.ROOMS) {                             // corridors
+      room = DA.ROOMS[id];
+      if (!room.map) continue;
+      for (var dir in room.exits) {
+        var to = DA.ROOMS[room.exits[dir]];
+        if (!to || !to.map) continue;
+        ctx.beginPath();
+        ctx.moveTo(ox + room.map.x * sx, oy + room.map.y * sy);
+        ctx.lineTo(ox + to.map.x * sx, oy + to.map.y * sy);
+        ctx.stroke();
+      }
+    }
+    for (id in DA.ROOMS) {                             // rooms
+      room = DA.ROOMS[id];
+      if (!room.map) continue;
+      var x = ox + room.map.x * sx, y = oy + room.map.y * sy;
+      var here = id === st.roomId;
+      ctx.beginPath(); ctx.arc(x, y, here ? 9 : 7, 0, 7);
+      if (here) { ctx.fillStyle = '#7ee081'; ctx.fill(); }
+      else if (st.visited && st.visited[id]) { ctx.fillStyle = '#e8d44d'; ctx.fill(); }
+      else { ctx.strokeStyle = room.boss ? '#c95d63' : '#555566'; ctx.lineWidth = 2; ctx.stroke(); }
+    }
+  }
+
   function drawHud(ctx, st) {
     var wm = st.waveManager;
     ctx.textAlign = 'center';
     ctx.font = '22px monospace';
     ctx.fillStyle = '#e8d44d';
     var label = st.room.name;
-    if (!st.room.boss && wm.room.waves.length) {
+    if (st.room.endless) label += ' — WAVE ' + (wm.wave + 1);
+    else if (!st.room.boss && wm.room.waves.length) {
       var waveNo = Math.min(wm.wave + 1, wm.room.waves.length);
       label += ' — WAVE ' + waveNo + '/' + wm.room.waves.length;
     }
     ctx.fillText(label, DA.W / 2, 28);
     for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts);
-    // current gun, always visible under the hearts
     var gun = DA.GUNS[st.player.gun] || DA.GUNS.pistol;
     ctx.textAlign = 'left';
     ctx.font = 'bold 18px monospace';
     ctx.fillStyle = gun.color;
-    var gunLabel = gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : '');
-    ctx.fillText(gunLabel, 16, 60);
+    ctx.fillText(gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : ''), 16, 60);
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#7ee081';
@@ -234,7 +314,7 @@
 
   function drawWorld(ctx, st) {
     ctx.save();
-    if (DA.fx.shake > 0) {
+    if (DA.fx.shake > 0 && !paused) {
       ctx.translate(DA.rand(-DA.fx.shake, DA.fx.shake), DA.rand(-DA.fx.shake, DA.fx.shake));
     }
     drawArena(ctx, st);
@@ -259,6 +339,27 @@
     }
   }
 
+  function favoriteGun(st) {
+    var best = null, n = 0;
+    for (var g in st.stats.killsByGun) {
+      if (st.stats.killsByGun[g] > n) { n = st.stats.killsByGun[g]; best = g; }
+    }
+    return best ? best + ' (' + n + ' kills)' : '—';
+  }
+
+  function statsLines(st, y) {
+    var acc = st.stats.shots ? Math.round(st.stats.hits / st.stats.shots * 100) : 0;
+    var mins = Math.floor(st.stats.seconds / 60), secs = st.stats.seconds % 60;
+    var run = st.room.endless ? (st.waveManager.wave + ' waves survived') :
+                                (st.roomsCleared + ' rooms cleared');
+    return [
+      { text: run + '  ·  ' + st.kills + ' kills  ·  ' + acc + '% accuracy',
+        font: '22px monospace', color: '#f2f2e9', y: y },
+      { text: 'favorite gun: ' + favoriteGun(st) + '  ·  ' + mins + 'm ' + secs + 's on air',
+        font: '20px monospace', color: '#8888a0', y: y + 32 }
+    ];
+  }
+
   function render(ctx) {
     var st = DA.state;
     if (st.mode === 'title') {
@@ -266,14 +367,22 @@
       var hint = DA.input.gamepadConnected() ?
         '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
         'WASD moves — mouse aims — click fires (or plug in a gamepad)';
-      drawCenteredScreen(ctx, [
-        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 280 },
-        { text: 'EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#c95d63', y: 330 },
-        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 372 },
-        { text: 'PRESS FIRE TO PLAY', font: 'bold 30px monospace', color: '#7ee081', y: 450 },
-        { text: hint, font: '18px monospace', color: '#8888a0', y: 490 },
-        { text: 'M mutes sound', font: '15px monospace', color: '#8888a0', y: 518 }
-      ]);
+      var lines = [
+        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 260 },
+        { text: 'EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#c95d63', y: 310 },
+        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 352 },
+        { text: 'PRESS FIRE TO PLAY', font: 'bold 30px monospace', color: '#7ee081', y: 430 }
+      ];
+      if (endlessUnlocked()) {
+        lines.push({ text: 'E (or 🎮 Y) FOR ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
+                     font: 'bold 22px monospace', color: '#5bc8d6', y: 468 });
+      }
+      var best = load('deadset_best');
+      if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
+                             font: 'bold 20px monospace', color: '#e8d44d', y: 506 });
+      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
+      lines.push({ text: 'Esc pauses · M mutes', font: '15px monospace', color: '#8888a0', y: 572 });
+      drawCenteredScreen(ctx, lines);
       DA.drawFxOver(ctx);
       if (showDebug) drawDebug(ctx);
       return;
@@ -281,23 +390,40 @@
 
     drawWorld(ctx, st);
     drawHud(ctx, st);
+    if (st.mode === 'playing' && st.roomCleared && st.room.map) drawMap(ctx, st);
     if (showDebug) drawDebug(ctx);
 
+    if (paused && st.mode === 'playing') {
+      drawCenteredScreen(ctx, [
+        { text: 'PAUSED', font: 'bold 72px monospace', color: '#e8d44d', y: 300 },
+        { text: 'WE\'LL BE RIGHT BACK', font: '24px monospace', color: '#8888a0', y: 345 },
+        { text: 'Esc / P / 🎮 Start to resume', font: 'bold 22px monospace', color: '#7ee081', y: 420 }
+      ]);
+      if (st.room.map) drawMap(ctx, st);
+      return;
+    }
+
     if (st.mode === 'gameover') {
-      drawCenteredScreen(ctx, [
-        { text: 'CUT TO COMMERCIAL', font: 'bold 72px monospace', color: '#d43a4b', y: 290 },
+      var go = [
+        { text: 'CUT TO COMMERCIAL', font: 'bold 72px monospace', color: '#d43a4b', y: 250 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
-                ' after ' + st.roomsCleared + ' room' + (st.roomsCleared === 1 ? '' : 's'),
-          font: '26px monospace', color: '#f2f2e9', y: 350 },
-        { text: 'PRESS FIRE TO RESTART', font: 'bold 30px monospace', color: '#7ee081', y: 440 }
-      ]);
+                (st.newBest ? '  —  NEW BEST!' : ''),
+          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 310 }
+      ].concat(statsLines(st, 370));
+      go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 30px monospace', color: '#7ee081', y: 480 });
+      if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 516 });
+      drawCenteredScreen(ctx, go);
     } else if (st.mode === 'winner') {
-      drawCenteredScreen(ctx, [
-        { text: "THAT'S A WRAP!", font: 'bold 84px monospace', color: '#e8d44d', y: 280 },
-        { text: 'Episode 1 survived — The Producer is done for.', font: '26px monospace', color: '#f2f2e9', y: 335 },
-        { text: 'You take home $' + st.score.toLocaleString('en-US'), font: '28px monospace', color: '#7ee081', y: 380 },
-        { text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 30px monospace', color: '#7ee081', y: 460 }
-      ]);
+      var w = [
+        { text: "THAT'S A WRAP!", font: 'bold 84px monospace', color: '#e8d44d', y: 240 },
+        { text: 'Episode 1 survived — The Producer is done for.', font: '24px monospace', color: '#f2f2e9', y: 292 },
+        { text: 'You take home $' + st.score.toLocaleString('en-US') +
+                (st.newBest ? '  —  NEW BEST!' : ''),
+          font: 'bold 28px monospace', color: '#7ee081', y: 336 }
+      ].concat(statsLines(st, 392));
+      w.push({ text: 'ENDLESS ARENA UNLOCKED — press E (or 🎮 Y)', font: 'bold 22px monospace', color: '#5bc8d6', y: 470 });
+      w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 510 });
+      drawCenteredScreen(ctx, w);
     }
   }
 

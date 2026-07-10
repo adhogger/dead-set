@@ -14,7 +14,8 @@
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
     var g = gun || DA.GUNS.pistol;
     arr.push({ x: x, y: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
-               dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null, color: g.color });
+               dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
+               color: g.color, gunLabel: g.label });
   };
   DA.updateBullets = function (arr, dt) {
     for (var i = arr.length - 1; i >= 0; i--) {
@@ -23,8 +24,9 @@
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) arr.splice(i, 1);
     }
   };
+  // returns how many bullets left the barrel (for the accuracy stat)
   DA.tryPlayerFire = function (p, arr) {
-    if (!p.firing || p.fireCooldown > 0) return;
+    if (!p.firing || p.fireCooldown > 0) return 0;
     var g = DA.GUNS[p.gun] || DA.GUNS.pistol;
     p.fireCooldown = g.rate;
     var base = Math.atan2(p.aimY, p.aimX);
@@ -35,6 +37,7 @@
       DA.fireBullet(arr, p.x + dx * 20, p.y + dy * 20, dx, dy, g);
     }
     if (DA.audio) DA.audio.shot();
+    return g.pellets;
   };
   DA.drawBullets = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {

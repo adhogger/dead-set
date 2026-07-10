@@ -10,7 +10,14 @@ choices, audience power-up drops, and **The Producer** waiting on Sound Stage 5.
 
 ## Play
 
-Open `index.html` in any browser. No install, no build step, no server needed.
+**Online: https://adhogger.github.io/dead-set/**
+
+Or open `index.html` in any browser. No install, no build step, no server needed.
+
+**Esc / P / 🎮 Start** pauses. Beat Episode 1 to unlock the **Endless Arena**
+(E or 🎮 Y from the title screen) — infinite waves, audience heart every 3rd wave,
+chase your best. High scores and run stats (kills, accuracy, favorite gun) are saved
+in your browser.
 
 **Gamepad (recommended):** left stick moves; push the right stick in any direction to fire
 that way (right trigger also fires). Press **G** for a raw controller readout if inputs act oddly.

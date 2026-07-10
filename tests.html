@@ -212,7 +212,7 @@ test('no wave ever uses all 4 doors at once', function () {
 test('every combat room offers at least 2 exit choices', function () {
   for (var id in DA.ROOMS) {
     var room = DA.ROOMS[id];
-    if (room.boss) continue;
+    if (room.boss || room.endless) continue;
     var n = Object.keys(room.exits).length;
     assert(n >= 2, id + ' has only ' + n + ' exit(s)');
   }
@@ -224,6 +224,39 @@ test('boost timers freeze when no combat is active', function () {
   assert(p.gunT === 10 && p.bootsT === 10, 'timers must not tick between fights');
   DA.updatePlayer(p, 1, true);
   assert(p.gunT < 10 && p.bootsT < 10, 'timers tick during combat');
+});
+test('endless waves scale up but keep the door cap and sane spawn rates', function () {
+  var prev = 0;
+  for (var n = 0; n < 20; n++) {
+    var w = DA.endlessWave(n);
+    assert(w.doors >= 1 && w.doors <= 3, 'doors capped, wave ' + n + ' has ' + w.doors);
+    var total = 0;
+    for (var g = 0; g < w.groups.length; g++) {
+      total += w.groups[g].count;
+      assert(w.groups[g].interval >= 0.05, 'spawn interval floor');
+    }
+    assert(total > prev, 'wave ' + n + ' should be bigger than the last');
+    prev = total;
+  }
+});
+test('endless wave manager never finishes', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.endless);
+  var enemies = [];
+  assert(wm.done === false, 'endless starts live');
+  for (var i = 0; i < 2000; i++) { DA.updateWaves(wm, enemies, 0.25); enemies.length = 0; }
+  assert(wm.done === false && wm.wave > 3, 'still going after many cleared waves, wave=' + wm.wave);
+});
+test('run stats: shots and hits are counted for accuracy', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1,
+             stats: { shots: 0, hits: 0, killsByGun: {} } };
+  st.player.firing = true; st.player.fireCooldown = 0;
+  st.stats.shots += DA.tryPlayerFire(st.player, st.bullets);
+  assert(st.stats.shots === 1, 'pistol shot counted');
+  st.enemies.push(DA.makeEnemy('sprinter', st.player.x + 100, st.player.y));
+  st.bullets[0].x = st.enemies[0].x; st.bullets[0].y = st.enemies[0].y;
+  DA.resolveCombat(st);
+  assert(st.stats.hits === 1, 'hit counted');
+  assert(st.stats.killsByGun.PISTOL === 1, 'kill credited to the gun');
 });
 test('room graph: every exit is valid and the boss is reachable', function () {
   var seen = {}, queue = [DA.START_ROOM];
