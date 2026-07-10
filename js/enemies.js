@@ -1,0 +1,52 @@
+(function () {
+  var TYPES = {
+    shambler: { r: 16, speed: 70,  hp: 2, score: 100, color: '#6fae5c' },
+    sprinter: { r: 12, speed: 210, hp: 1, score: 250, color: '#c95d63' }
+  };
+  // 4 spawn doors: top, bottom, left, right (centered on each wall)
+  DA.DOORS = [
+    { x: DA.W / 2, y: 20 }, { x: DA.W / 2, y: DA.H - 20 },
+    { x: 20, y: DA.H / 2 }, { x: DA.W - 20, y: DA.H / 2 }
+  ];
+  DA.makeEnemy = function (type, x, y) {
+    var t = TYPES[type];
+    return { type: type, x: x, y: y, r: t.r, speed: t.speed, hp: t.hp,
+             score: t.score, color: t.color, wobble: Math.random() * 6.28 };
+  };
+  DA.spawnAtDoor = function (arr, type) {
+    var d = DA.DOORS[Math.floor(Math.random() * DA.DOORS.length)];
+    arr.push(DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30)));
+  };
+  DA.updateEnemies = function (arr, player, dt) {
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i];
+      var v = DA.norm(player.x - e.x, player.y - e.y);
+      e.wobble += dt * 5;
+      e.x += (v.x + Math.cos(e.wobble) * 0.25) * e.speed * dt;
+      e.y += (v.y + Math.sin(e.wobble) * 0.25) * e.speed * dt;
+      DA.clampToArena(e);
+    }
+    // separation: overlapping zombies push each other apart so hordes stay readable
+    for (var a = 0; a < arr.length; a++) {
+      for (var b = a + 1; b < arr.length; b++) {
+        var ea = arr[a], eb = arr[b];
+        if (!DA.circleHit(ea.x, ea.y, ea.r, eb.x, eb.y, eb.r)) continue;
+        var away = DA.norm(eb.x - ea.x, eb.y - ea.y);
+        if (away.len === 0) { away.x = Math.cos(ea.wobble); away.y = Math.sin(ea.wobble); }
+        var push = (ea.r + eb.r - away.len) / 2;
+        ea.x -= away.x * push; ea.y -= away.y * push;
+        eb.x += away.x * push; eb.y += away.y * push;
+        DA.clampToArena(ea); DA.clampToArena(eb);
+      }
+    }
+  };
+  DA.drawEnemies = function (ctx, arr) {
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i];
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+      ctx.fillStyle = '#1a1a1a'; // dead eyes
+      ctx.fillRect(e.x - 6, e.y - 4, 4, 4); ctx.fillRect(e.x + 2, e.y - 4, 4, 4);
+    }
+  };
+})();

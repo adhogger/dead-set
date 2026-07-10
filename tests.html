@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Dead Air tests</title>
+<style>body{font:16px monospace;background:#111;color:#eee;padding:20px}
+.pass{color:#5f5}.fail{color:#f55}</style></head><body>
+<h1>Dead Air tests</h1><div id="out"></div>
+<script src="js/util.js"></script>
+<script src="js/input.js"></script>
+<script src="js/bullets.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/player.js"></script>
+<script src="js/rooms.js"></script>
+<script src="js/combat.js"></script>
+<script>
+var out = document.getElementById('out'), failures = 0;
+function test(name, fn) {
+  var el = document.createElement('div');
+  try { fn(); el.className = 'pass'; el.textContent = '✅ ' + name; }
+  catch (e) { failures++; el.className = 'fail'; el.textContent = '❌ ' + name + ' — ' + e.message; }
+  out.appendChild(el);
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+function approx(a, b) { return Math.abs(a - b) < 0.001; }
+</script>
+<script>
+// util tests
+test('clamp holds values in range', function () {
+  assert(DA.clamp(5, 0, 10) === 5); assert(DA.clamp(-1, 0, 10) === 0); assert(DA.clamp(99, 0, 10) === 10);
+});
+test('circleHit true when overlapping, false when apart', function () {
+  assert(DA.circleHit(0, 0, 10, 15, 0, 10) === true);
+  assert(DA.circleHit(0, 0, 10, 25, 0, 10) === false);
+});
+test('norm returns unit vector and zero stays zero', function () {
+  var n = DA.norm(3, 4); assert(approx(n.x, 0.6) && approx(n.y, 0.8) && approx(n.len, 5));
+  var z = DA.norm(0, 0); assert(z.x === 0 && z.y === 0 && z.len === 0);
+});
+
+// input tests
+test('screenToCanvas maps letterboxed mouse coords to 1280x720 space', function () {
+  // window 2560x1440 → scale 2, no letterbox offset
+  var p = DA.screenToCanvas(640, 360, 2560, 1440);
+  assert(approx(p.x, 320) && approx(p.y, 180));
+  // window 2560x1600 → scale 2, 80px vertical letterbox
+  var q = DA.screenToCanvas(640, 440, 2560, 1600);
+  assert(approx(q.x, 320) && approx(q.y, 180));
+});
+test('applyDeadzone kills drift below threshold, rescales above', function () {
+  assert(DA.applyDeadzone(0.1) === 0);
+  assert(approx(DA.applyDeadzone(1), 1));
+  assert(DA.applyDeadzone(0.6) > 0 && DA.applyDeadzone(0.6) < 0.6);
+});
+
+// player tests
+test('player stays inside arena walls', function () {
+  var p = DA.makePlayer();
+  p.x = 5; p.y = 5000; DA.clampToArena(p);
+  assert(p.x >= 40 + p.r && p.y <= 680 - p.r);
+});
+
+// enemy tests
+test('enemy types have expected stats', function () {
+  var s = DA.makeEnemy('shambler', 0, 0);
+  var f = DA.makeEnemy('sprinter', 0, 0);
+  assert(f.speed > s.speed && s.hp >= f.hp);
+});
+test('enemies chase the player', function () {
+  var e = DA.makeEnemy('shambler', 200, 200);
+  DA.updateEnemies([e], { x: 600, y: 200 }, 0.1);
+  assert(e.x > 200);
+});
+
+// combat tests
+test('resolveCombat kills enemies, removes bullets, hurts player once', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  st.enemies.push(DA.makeEnemy('sprinter', st.player.x + 100, st.player.y));
+  DA.fireBullet(st.bullets, st.player.x + 90, st.player.y, 1, 0);
+  st.bullets[0].x = st.enemies[0].x; // force overlap
+  DA.resolveCombat(st);
+  assert(st.enemies.length === 0 && st.bullets.length === 0 && st.score > 0);
+
+  st.enemies.push(DA.makeEnemy('shambler', st.player.x, st.player.y)); // on top of player
+  var hearts = st.player.hearts;
+  DA.resolveCombat(st); DA.resolveCombat(st); // second hit inside i-frames
+  assert(st.player.hearts === hearts - 1, 'i-frames must prevent double hit');
+});
+
+// wave tests
+test('wave manager spawns over time and advances between waves', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var enemies = [];
+  for (var i = 0; i < 12; i++) DA.updateWaves(wm, enemies, 0.25); // past the 2s get-ready pause
+  assert(enemies.length > 0, 'should spawn');
+  for (var i = 0; i < 400; i++) DA.updateWaves(wm, enemies, 0.25); // drain all spawns
+  enemies.length = 0;                         // player "kills" everything
+  DA.updateWaves(wm, enemies, 0.25);
+  assert(wm.wave >= 1, 'should advance after clear');
+});
+test('wave manager reports victory when all waves cleared', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var enemies = [];
+  for (var i = 0; i < 4000; i++) { DA.updateWaves(wm, enemies, 0.25); enemies.length = 0; }
+  assert(wm.done === true);
+});
+
+// combo tests
+test('combo climbs on kills and resets after timeout', function () {
+  var st = { combo: 1, comboTimer: 0 };
+  DA.bumpCombo(st); DA.bumpCombo(st);
+  assert(st.combo === 3);
+  DA.updateCombo(st, 5); // 5s passes
+  assert(st.combo === 1);
+});
+
+// bullet tests
+test('bullets move and expire off-arena', function () {
+  var bs = [];
+  DA.fireBullet(bs, 100, 100, 1, 0);
+  DA.updateBullets(bs, 0.1);
+  assert(bs[0].x > 100);
+  bs[0].x = 5000; DA.updateBullets(bs, 0.016);
+  assert(bs.length === 0);
+});
+</script>
+<script>
+document.title = failures ? '❌ FAILURES' : '✅ all pass';
+</script>
+</body></html>
