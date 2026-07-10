@@ -46,6 +46,11 @@
       return { moveX: mx, moveY: my, aimX: maim.x, aimY: maim.y,
                firing: mouse.down, device: 'keyboard' };
     },
+    // true while any "start the game" input is held: fire, click, Enter or Space
+    startHeld: function () {
+      if (keys.Enter || keys.Space) return true;
+      return DA.input.state(DA.W / 2, DA.H / 2).firing;
+    },
     gamepadConnected: function () {
       var pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) return true;
