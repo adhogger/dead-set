@@ -28,6 +28,7 @@
       if (killed) {
         st.enemies.splice(i, 1);
         st.score += e.score * st.combo;
+        if (e.isBoss) st.bossDead = true;
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e);
         continue;

@@ -1,25 +1,34 @@
 (function () {
   var TYPES = {
-    shambler: { r: 12, speed: 70,  hp: 2, score: 100, color: '#6fae5c' },
-    sprinter: { r: 9,  speed: 210, hp: 1, score: 250, color: '#c95d63' }
+    shambler: { r: 12, speed: 70,  hp: 2,  score: 100, color: '#6fae5c' },
+    sprinter: { r: 12, speed: 210, hp: 1,  score: 250, color: '#c95d63' },
+    swarmer:  { r: 7,  speed: 130, hp: 1,  score: 50,  color: '#5bc8d6' },
+    brute:    { r: 20, speed: 45,  hp: 10, score: 500, color: '#9b6bb3' }
   };
-  // 4 spawn doors: top, bottom, left, right (centered on each wall)
+  // 4 spawn doors, one per wall; dir names match room exit directions
   DA.DOORS = [
-    { x: DA.W / 2, y: 20 }, { x: DA.W / 2, y: DA.H - 20 },
-    { x: 20, y: DA.H / 2 }, { x: DA.W - 20, y: DA.H / 2 }
+    { dir: 'N', x: DA.W / 2, y: 20 }, { dir: 'S', x: DA.W / 2, y: DA.H - 20 },
+    { dir: 'W', x: 20, y: DA.H / 2 }, { dir: 'E', x: DA.W - 20, y: DA.H / 2 }
   ];
+  DA.doorByDir = function (dir) {
+    for (var i = 0; i < DA.DOORS.length; i++) if (DA.DOORS[i].dir === dir) return DA.DOORS[i];
+    return null;
+  };
   DA.makeEnemy = function (type, x, y, speed) {
     var t = TYPES[type];
     return { type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
              score: t.score, color: t.color, wobble: Math.random() * 6.28 };
   };
-  DA.spawnAtDoor = function (arr, type, speed) {
-    var d = DA.DOORS[Math.floor(Math.random() * DA.DOORS.length)];
+  // doors: optional array of door objects to spawn from (staggered-door waves)
+  DA.spawnAtDoor = function (arr, type, speed, doors) {
+    var pool = (doors && doors.length) ? doors : DA.DOORS;
+    var d = pool[Math.floor(Math.random() * pool.length)];
     arr.push(DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed));
   };
   DA.updateEnemies = function (arr, player, dt) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
+      if (e.isBoss) continue; // the boss moves itself (js/boss.js)
       var v = DA.norm(player.x - e.x, player.y - e.y);
       e.wobble += dt * 5;
       e.x += (v.x + Math.cos(e.wobble) * 0.25) * e.speed * dt;
@@ -30,6 +39,7 @@
     for (var a = 0; a < arr.length; a++) {
       for (var b = a + 1; b < arr.length; b++) {
         var ea = arr[a], eb = arr[b];
+        if (ea.isBoss || eb.isBoss) continue;
         if (!DA.circleHit(ea.x, ea.y, ea.r, eb.x, eb.y, eb.r)) continue;
         var away = DA.norm(eb.x - ea.x, eb.y - ea.y);
         if (away.len === 0) { away.x = Math.cos(ea.wobble); away.y = Math.sin(ea.wobble); }
@@ -55,6 +65,7 @@
   DA.drawEnemies = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
+      if (e.isBoss) { if (DA.drawBoss) DA.drawBoss(ctx, e); continue; }
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
       ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size

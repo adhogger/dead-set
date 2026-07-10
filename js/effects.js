@@ -24,6 +24,7 @@
 
   DA.announce = function (text) {
     DA.fx.popups.push({ text: text, y: 130, life: 1.2, maxLife: 1.2 });
+    if (DA.audio) DA.audio.sting();
   };
 
   DA.addShake = function (amount) {
@@ -80,16 +81,19 @@
   // Game-event hooks fired by combat.js / rooms.js
   DA.onKill = function (st, e) {
     st.kills = (st.kills || 0) + 1;
-    DA.burst(e.x, e.y, e.color, 12);
+    DA.burst(e.x, e.y, e.color, e.isBoss ? 60 : 12);
     DA.splat(e.x, e.y);
-    DA.addShake(3);
-    if (st.kills % 10 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+    DA.addShake(e.isBoss ? 14 : 3);
+    if (DA.audio) DA.audio.splat();
+    if (st.kills % 20 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
   };
   DA.onPlayerHurt = function (st) {
     DA.addShake(10);
     DA.burst(st.player.x, st.player.y, '#c0392b', 16);
+    if (DA.audio) DA.audio.hurt();
   };
   DA.onWaveStart = function (n) {
     DA.announce('WAVE ' + n);
+    if (DA.audio) DA.audio.wave();
   };
 })();

@@ -10,6 +10,8 @@
 <script src="js/player.js"></script>
 <script src="js/rooms.js"></script>
 <script src="js/combat.js"></script>
+<script src="js/boss.js"></script>
+<script src="js/powerups.js"></script>
 <script>
 var out = document.getElementById('out'), failures = 0;
 function test(name, fn) {
@@ -86,12 +88,29 @@ test('player stays inside arena walls', function () {
   p.x = 5; p.y = 5000; DA.clampToArena(p);
   assert(p.x >= 40 + p.r && p.y <= 680 - p.r);
 });
+test('player movement eases in instead of snapping', function () {
+  var p = DA.makePlayer();
+  DA.movePlayer(p, 1, 0, 1/60);
+  assert(p.vx > 0 && p.vx < p.speed * 0.5, 'one tick should be partial speed, got ' + p.vx);
+  for (var i = 0; i < 120; i++) DA.movePlayer(p, 1, 0, 1/60);
+  assert(p.vx > p.speed * 0.9, 'should approach full speed, got ' + p.vx);
+});
 
 // enemy tests
 test('enemy types have expected stats', function () {
   var s = DA.makeEnemy('shambler', 0, 0);
   var f = DA.makeEnemy('sprinter', 0, 0);
   assert(f.speed > s.speed && s.hp >= f.hp);
+  assert(f.r === s.r, 'sprinters should be the same size as shamblers');
+  var b = DA.makeEnemy('brute', 0, 0), w = DA.makeEnemy('swarmer', 0, 0);
+  assert(b.hp > s.hp && b.r > s.r, 'brutes are big and tanky');
+  assert(w.r < s.r && w.hp === 1, 'swarmers are small and fragile');
+});
+test('spawnAtDoor honors an active-door subset', function () {
+  var arr = [];
+  var north = [DA.doorByDir('N')];
+  for (var i = 0; i < 20; i++) DA.spawnAtDoor(arr, 'shambler', null, north);
+  for (i = 0; i < arr.length; i++) assert(arr[i].y < 120, 'all spawns should hug the north door');
 });
 test('enemies chase the player', function () {
   var e = DA.makeEnemy('shambler', 200, 200);
@@ -131,7 +150,7 @@ test('resolveCombat kills enemies, removes bullets, hurts player once', function
 
 // wave tests
 test('wave manager spawns over time and advances between waves', function () {
-  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var wm = DA.makeWaveManager(DA.ROOMS.studio1);
   var enemies = [];
   for (var i = 0; i < 12; i++) DA.updateWaves(wm, enemies, 0.25); // past the 2s get-ready pause
   assert(enemies.length > 0, 'should spawn');
@@ -141,10 +160,74 @@ test('wave manager spawns over time and advances between waves', function () {
   assert(wm.wave >= 1, 'should advance after clear');
 });
 test('wave manager reports victory when all waves cleared', function () {
-  var wm = DA.makeWaveManager(DA.ROOMS.testRoom);
+  var wm = DA.makeWaveManager(DA.ROOMS.studio1);
   var enemies = [];
   for (var i = 0; i < 4000; i++) { DA.updateWaves(wm, enemies, 0.25); enemies.length = 0; }
   assert(wm.done === true);
+});
+test('waves stagger their spawn doors per the room data', function () {
+  var wm = DA.makeWaveManager(DA.ROOMS.studio1);
+  var enemies = [];
+  for (var i = 0; i < 12; i++) DA.updateWaves(wm, enemies, 0.25); // start wave 1
+  assert(wm.activeDoors.length === 1, 'studio1 wave 1 uses a single door, got ' + wm.activeDoors.length);
+  var doorX = wm.activeDoors[0].x, doorY = wm.activeDoors[0].y;
+  for (i = 0; i < enemies.length; i++) {
+    assert(Math.abs(enemies[i].x - doorX) < 120 || Math.abs(enemies[i].y - doorY) < 120,
+           'spawns should come from the one active door');
+  }
+});
+test('room graph: every exit is valid and the boss is reachable', function () {
+  var seen = {}, queue = [DA.START_ROOM];
+  while (queue.length) {
+    var id = queue.shift();
+    if (seen[id]) continue;
+    seen[id] = true;
+    var room = DA.ROOMS[id];
+    assert(room, 'room "' + id + '" must exist');
+    for (var dir in room.exits) {
+      assert(DA.ROOMS[room.exits[dir]], 'exit ' + dir + ' of ' + id + ' points to a real room');
+      assert(DA.oppositeDir(dir), 'exit direction must be N/S/E/W');
+      queue.push(room.exits[dir]);
+    }
+  }
+  assert(seen.stage === true, 'the boss stage must be reachable from the start');
+});
+test('boss fires radial bursts and has phases', function () {
+  var b = DA.makeBoss();
+  assert(DA.bossPhase(b) === 1);
+  b.hp = b.maxHp * 0.4;
+  assert(DA.bossPhase(b) === 2, 'phase 2 below half health');
+  var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
+  b.burstT = 0.01; b.minionT = 999; b.aimedT = 999;
+  DA.updateBoss(b, st, 0.02);
+  assert(st.enemyBullets.length >= 10, 'burst should spray bullets, got ' + st.enemyBullets.length);
+});
+test('enemy bullets hurt the player once, respecting i-frames', function () {
+  var p = DA.makePlayer();
+  var arr = [];
+  DA.fireEnemyBullet(arr, p.x, p.y, 1, 0);
+  DA.fireEnemyBullet(arr, p.x, p.y, -1, 0);
+  var hearts = p.hearts;
+  DA.updateEnemyBullets(arr, p, 0.016);
+  assert(p.hearts === hearts - 1, 'exactly one heart lost, got ' + (hearts - p.hearts));
+  assert(p.invuln > 0, 'i-frames should start');
+});
+test('power-ups apply their effects and hearts cap out', function () {
+  var p = DA.makePlayer();
+  DA.applyPowerup(p, 'spread'); assert(p.spreadT > 0, 'spread timer set');
+  DA.applyPowerup(p, 'boots'); assert(p.bootsT > 0, 'boots timer set');
+  p.hearts = DA.MAX_HEARTS;
+  DA.applyPowerup(p, 'heart');
+  assert(p.hearts === DA.MAX_HEARTS, 'hearts must not exceed the cap');
+});
+test('spread shot fires three bullets, normal fires one', function () {
+  var p = DA.makePlayer(), arr = [];
+  p.firing = true; p.fireCooldown = 0;
+  DA.tryPlayerFire(p, arr);
+  assert(arr.length === 1, 'normal fire = 1 bullet');
+  p.spreadT = 5; p.fireCooldown = 0;
+  DA.tryPlayerFire(p, arr);
+  assert(arr.length === 4, 'spread fire adds 3 more, got ' + arr.length);
 });
 
 // combo tests
