@@ -102,6 +102,15 @@ test('wave manager reports victory when all waves cleared', function () {
   assert(wm.done === true);
 });
 
+// combo tests
+test('combo climbs on kills and resets after timeout', function () {
+  var st = { combo: 1, comboTimer: 0 };
+  DA.bumpCombo(st); DA.bumpCombo(st);
+  assert(st.combo === 3);
+  DA.updateCombo(st, 5); // 5s passes
+  assert(st.combo === 1);
+});
+
 // bullet tests
 test('bullets move and expire off-arena', function () {
   var bs = [];

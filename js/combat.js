@@ -1,6 +1,17 @@
 (function () {
   // Effect/announcer hooks (DA.onKill, DA.onPlayerHurt) are optional so this
   // file stays testable without the effects layer loaded.
+  var COMBO_CAP = 9, COMBO_WINDOW = 3; // seconds to keep a kill chain alive
+  DA.bumpCombo = function (st) {
+    st.combo = Math.min(st.combo + 1, COMBO_CAP);
+    st.comboTimer = COMBO_WINDOW;
+  };
+  DA.updateCombo = function (st, dt) {
+    if (st.comboTimer > 0) {
+      st.comboTimer -= dt;
+      if (st.comboTimer <= 0) st.combo = 1;
+    }
+  };
   DA.resolveCombat = function (st) {
     var p = st.player;
     for (var i = st.enemies.length - 1; i >= 0; i--) {
