@@ -39,6 +39,18 @@
         DA.clampToArena(ea); DA.clampToArena(eb);
       }
     }
+    // player wall: zombies press against the player's edge but can never merge
+    // with it (a merged zombie would sit behind the bullet spawn point and be unhittable)
+    for (var k = 0; k < arr.length; k++) {
+      var ez = arr[k];
+      var minD = player.r + ez.r;
+      var out = DA.norm(ez.x - player.x, ez.y - player.y);
+      if (out.len >= minD) continue;
+      if (out.len === 0) { out.x = Math.cos(ez.wobble); out.y = Math.sin(ez.wobble); }
+      ez.x = player.x + out.x * minD;
+      ez.y = player.y + out.y * minD;
+      DA.clampToArena(ez);
+    }
   };
   DA.drawEnemies = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {

@@ -65,8 +65,16 @@ test('enemy types have expected stats', function () {
 });
 test('enemies chase the player', function () {
   var e = DA.makeEnemy('shambler', 200, 200);
-  DA.updateEnemies([e], { x: 600, y: 200 }, 0.1);
+  DA.updateEnemies([e], { x: 600, y: 200, r: 12 }, 0.1);
   assert(e.x > 200);
+});
+
+test('zombies cannot merge with the player', function () {
+  var p = DA.makePlayer();
+  var e = DA.makeEnemy('shambler', p.x, p.y); // spawn on top of the player
+  DA.updateEnemies([e], p, 0.016);
+  var d = Math.sqrt(DA.dist2(p.x, p.y, e.x, e.y));
+  assert(d >= p.r + e.r - 0.001, 'zombie must be pushed outside the player wall');
 });
 
 // combat tests
