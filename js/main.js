@@ -267,9 +267,9 @@
         '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
         'WASD moves — mouse aims — click fires (or plug in a gamepad)';
       drawCenteredScreen(ctx, [
-        { text: 'DEAD AIR', font: 'bold 96px monospace', color: '#e8d44d', y: 280 },
+        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 280 },
         { text: 'EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#c95d63', y: 330 },
-        { text: "America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 372 },
+        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 372 },
         { text: 'PRESS FIRE TO PLAY', font: 'bold 30px monospace', color: '#7ee081', y: 450 },
         { text: hint, font: '18px monospace', color: '#8888a0', y: 490 },
         { text: 'M mutes sound', font: '15px monospace', color: '#8888a0', y: 518 }

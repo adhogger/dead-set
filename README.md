@@ -1,6 +1,8 @@
-# DEAD AIR 🧟📺
+# DEAD SET 🧟📺
 
-*America's #1 post-apocalyptic game show!*
+*New America's #1 post-apocalyptic game show!*
+
+(The project folder is still called `dead-air` — the show got renamed mid-season.)
 
 A browser twin-stick shooter in the spirit of Smash TV. You're a contestant fighting
 through the studios of a zombie-infested TV network — 8 connected rooms with exit-door
