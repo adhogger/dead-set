@@ -4,9 +4,9 @@
     testRoom: {
       name: 'STUDIO 1',
       waves: [
-        [{ type: 'shambler', count: 8,  interval: 0.8 }],
-        [{ type: 'shambler', count: 10, interval: 0.6 }, { type: 'sprinter', count: 3, interval: 2.0 }],
-        [{ type: 'shambler', count: 14, interval: 0.5 }, { type: 'sprinter', count: 6, interval: 1.2 }]
+        [{ type: 'shambler', count: 24, interval: 0.08 }],
+        [{ type: 'shambler', count: 30, interval: 0.06 }, { type: 'sprinter', count: 9,  interval: 2.0 }],
+        [{ type: 'shambler', count: 42, interval: 0.05 }, { type: 'sprinter', count: 18, interval: 1.2 }]
       ]
     }
   };

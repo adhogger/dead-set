@@ -12,35 +12,49 @@
   };
 
   // Pads SHOULD report right-stick vertical on axis 3 ("standard" mapping), but
-  // many controller/browser combos put it on axis 5 or 4. We watch every axis over
-  // time: a stick axis idles near zero and moves both ways; a trigger idles at -1.
-  // zeroFrac[i] = fraction of samples where the axis sat near zero.
-  // Returns axis indices; y === -1 means "no trustworthy vertical axis yet".
-  DA.pickAimAxes = function (zeroFrac, min, max) {
-    function stickLike(i) { return typeof zeroFrac[i] === 'number' && zeroFrac[i] > 0.3; }
+  // many controller/browser combos put it on axis 5 or 4. A stick axis is one that
+  // has SAT near zero for an unbroken streak (sticks snap back and rest; triggers
+  // only pass through zero for a frame) AND has moved both ways. idleStreaks[i] =
+  // longest consecutive near-zero run seen. proven === true means the y axis
+  // demonstrated real stick behaviour, so callers can lock it in permanently.
+  // y === -1 means "no trustworthy vertical axis yet".
+  DA.pickAimAxes = function (idleStreaks, min, max) {
+    function stickLike(i) { return typeof idleStreaks[i] === 'number' && idleStreaks[i] >= 15; }
     function live(i) { return stickLike(i) && min[i] < -0.25 && max[i] > 0.25; }
-    var candidates = [3, 5, 4], y = -1;
+    var candidates = [3, 5, 4];
     for (var c = 0; c < candidates.length; c++) {
-      if (live(candidates[c])) { y = candidates[c]; break; }
+      if (live(candidates[c])) return { x: 2, y: candidates[c], proven: true };
     }
-    if (y === -1 && stickLike(3)) y = 3; // nothing proven yet: trust the spec default
-    return { x: 2, y: y };
+    return { x: 2, y: stickLike(3) ? 3 : -1, proven: false };
   };
 
   var padWatch = null; // per-pad axis history, sampled every poll
   function watchPad(pad) {
     if (!padWatch || padWatch.id !== pad.id) {
       padWatch = { id: pad.id, min: pad.axes.slice(), max: pad.axes.slice(),
-                   nearZero: pad.axes.map(function () { return 0; }), samples: 0 };
+                   streak: pad.axes.map(function () { return 0; }),
+                   bestStreak: pad.axes.map(function () { return 0; }),
+                   lockedY: -1 };
     }
-    padWatch.samples++;
     for (var i = 0; i < pad.axes.length; i++) {
-      if (pad.axes[i] < padWatch.min[i]) padWatch.min[i] = pad.axes[i];
-      if (pad.axes[i] > padWatch.max[i]) padWatch.max[i] = pad.axes[i];
-      if (Math.abs(pad.axes[i]) < 0.15) padWatch.nearZero[i]++;
+      var v = pad.axes[i];
+      if (v < padWatch.min[i]) padWatch.min[i] = v;
+      if (v > padWatch.max[i]) padWatch.max[i] = v;
+      if (Math.abs(v) < 0.15) {
+        padWatch.streak[i]++;
+        if (padWatch.streak[i] > padWatch.bestStreak[i]) padWatch.bestStreak[i] = padWatch.streak[i];
+      } else {
+        padWatch.streak[i] = 0;
+      }
     }
-    padWatch.zeroFrac = padWatch.nearZero.map(function (n) { return n / padWatch.samples; });
     return padWatch;
+  }
+
+  // Decide (and permanently lock) which axis is the right-stick vertical.
+  function aimAxesFor(watch) {
+    var pick = DA.pickAimAxes(watch.bestStreak, watch.min, watch.max);
+    if (watch.lockedY < 0 && pick.proven) watch.lockedY = pick.y;
+    return { x: pick.x, y: watch.lockedY >= 0 ? watch.lockedY : pick.y, locked: watch.lockedY >= 0 };
   }
 
   var keys = {}, mouse = { x: DA.W / 2, y: DA.H / 2, down: false };
@@ -63,7 +77,7 @@
       for (var i = 0; i < pads.length; i++) if (pads[i] && pads[i].connected) { pad = pads[i]; break; }
       if (pad) {
         var watch = watchPad(pad);
-        var pick = DA.pickAimAxes(watch.zeroFrac, watch.min, watch.max);
+        var pick = aimAxesFor(watch);
         var gx = DA.applyDeadzone(pad.axes[0]), gy = DA.applyDeadzone(pad.axes[1]);
         var ax = DA.applyDeadzone(pad.axes[pick.x] || 0);
         var ay = pick.y >= 0 ? DA.applyDeadzone(pad.axes[pick.y] || 0) : 0;
@@ -98,14 +112,14 @@
         var pad = pads[i];
         if (!pad || !pad.connected) continue;
         var watch = watchPad(pad);
-        var pick = DA.pickAimAxes(watch.zeroFrac, watch.min, watch.max);
+        var pick = aimAxesFor(watch);
         var pressed = [];
         for (var b = 0; b < pad.buttons.length; b++) if (pad.buttons[b].pressed) pressed.push(b);
         return {
           id: pad.id.slice(0, 40), mapping: pad.mapping || '(none)',
           axes: pad.axes.map(function (v) { return v.toFixed(2); }).join('  '),
           pressed: pressed.join(',') || 'none',
-          aimAxes: 'x=axis' + pick.x + '  y=' + (pick.y >= 0 ? 'axis' + pick.y : 'not found yet — wiggle right stick')
+          aimAxes: 'x=axis' + pick.x + '  y=' + (pick.y >= 0 ? 'axis' + pick.y + (pick.locked ? ' (locked)' : ' (unproven)') : 'not found yet — wiggle right stick')
         };
       }
       return null;
