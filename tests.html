@@ -67,6 +67,10 @@ test('pickAimAxes finds the real right-stick vertical axis', function () {
   // axis 3 is a trigger: crosses zero when pressed but never SITS there → never aim with it
   r = DA.pickAimAxes([99,99,99,3], [0,0,0,-1], [0,0,0,1]);
   assert(r.y === -1, 'trigger-like axis 3 must not be used as aim');
+  // exotic layout: vertical lives way out on axis 7 → still found
+  r = DA.pickAimAxes([99,99,99,99,99,99,99,99],
+                     [-1,-1,-1,0,0,0,0,-1], [1,1,1,0,0,0,0,1]);
+  assert(r.y === 7, 'any reported axis can be the vertical, got ' + r.y);
 });
 test('right-stick axis stays locked even when held deflected for ages', function () {
   var axes = [0,0,0,0,0,0];

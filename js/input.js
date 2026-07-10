@@ -19,9 +19,12 @@
   // demonstrated real stick behaviour, so callers can lock it in permanently.
   // y === -1 means "no trustworthy vertical axis yet".
   DA.pickAimAxes = function (idleStreaks, min, max) {
-    function stickLike(i) { return typeof idleStreaks[i] === 'number' && idleStreaks[i] >= 15; }
+    function stickLike(i) { return typeof idleStreaks[i] === 'number' && idleStreaks[i] >= 10; }
     function live(i) { return stickLike(i) && min[i] < -0.25 && max[i] > 0.25; }
+    // spec says 3; common alternates 5 and 4; then hunt through anything else
+    // the browser reports (axes 0-2 are left stick + right-stick X)
     var candidates = [3, 5, 4];
+    for (var extra = 6; extra < idleStreaks.length; extra++) candidates.push(extra);
     for (var c = 0; c < candidates.length; c++) {
       if (live(candidates[c])) return { x: 2, y: candidates[c], proven: true };
     }
