@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Dead Air tests</title>
+<style>body{font:16px monospace;background:#111;color:#eee;padding:20px}
+.pass{color:#5f5}.fail{color:#f55}</style></head><body>
+<h1>Dead Air tests</h1><div id="out"></div>
+<script src="js/util.js"></script>
+<script>
+var out = document.getElementById('out'), failures = 0;
+function test(name, fn) {
+  var el = document.createElement('div');
+  try { fn(); el.className = 'pass'; el.textContent = '✅ ' + name; }
+  catch (e) { failures++; el.className = 'fail'; el.textContent = '❌ ' + name + ' — ' + e.message; }
+  out.appendChild(el);
+}
+function assert(cond, msg) { if (!cond) throw new Error(msg || 'assertion failed'); }
+function approx(a, b) { return Math.abs(a - b) < 0.001; }
+</script>
+<script>
+// util tests
+test('clamp holds values in range', function () {
+  assert(DA.clamp(5, 0, 10) === 5); assert(DA.clamp(-1, 0, 10) === 0); assert(DA.clamp(99, 0, 10) === 10);
+});
+test('circleHit true when overlapping, false when apart', function () {
+  assert(DA.circleHit(0, 0, 10, 15, 0, 10) === true);
+  assert(DA.circleHit(0, 0, 10, 25, 0, 10) === false);
+});
+test('norm returns unit vector and zero stays zero', function () {
+  var n = DA.norm(3, 4); assert(approx(n.x, 0.6) && approx(n.y, 0.8) && approx(n.len, 5));
+  var z = DA.norm(0, 0); assert(z.x === 0 && z.y === 0 && z.len === 0);
+});
+</script>
+<script>
+document.title = failures ? '❌ FAILURES' : '✅ all pass';
+</script>
+</body></html>
