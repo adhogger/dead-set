@@ -113,7 +113,7 @@
     }
     startWasHeld = startHeld;
 
-    DA.updatePlayer(st.player, dt);
+    DA.updatePlayer(st.player, dt, st.enemies.length > 0);
     DA.tryPlayerFire(st.player, st.bullets);
     DA.updateBullets(st.bullets, dt);
     DA.updateWaves(st.waveManager, st.enemies, dt);

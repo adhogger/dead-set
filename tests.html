@@ -176,6 +176,31 @@ test('waves stagger their spawn doors per the room data', function () {
            'spawns should come from the one active door');
   }
 });
+test('no wave ever uses all 4 doors at once', function () {
+  for (var id in DA.ROOMS) {
+    var waves = DA.ROOMS[id].waves;
+    for (var w = 0; w < waves.length; w++) {
+      assert(waves[w].doors >= 1 && waves[w].doors <= 3,
+             id + ' wave ' + (w + 1) + ' uses ' + waves[w].doors + ' doors');
+    }
+  }
+});
+test('every combat room offers at least 2 exit choices', function () {
+  for (var id in DA.ROOMS) {
+    var room = DA.ROOMS[id];
+    if (room.boss) continue;
+    var n = Object.keys(room.exits).length;
+    assert(n >= 2, id + ' has only ' + n + ' exit(s)');
+  }
+});
+test('boost timers freeze when no combat is active', function () {
+  var p = DA.makePlayer();
+  p.spreadT = 10; p.bootsT = 10;
+  DA.updatePlayer(p, 1, false);   // 1 simulated second, combat inactive
+  assert(p.spreadT === 10 && p.bootsT === 10, 'timers must not tick between fights');
+  DA.updatePlayer(p, 1, true);
+  assert(p.spreadT < 10 && p.bootsT < 10, 'timers tick during combat');
+});
 test('room graph: every exit is valid and the boss is reachable', function () {
   var seen = {}, queue = [DA.START_ROOM];
   while (queue.length) {
@@ -214,8 +239,8 @@ test('enemy bullets hurt the player once, respecting i-frames', function () {
 });
 test('power-ups apply their effects and hearts cap out', function () {
   var p = DA.makePlayer();
-  DA.applyPowerup(p, 'spread'); assert(p.spreadT > 0, 'spread timer set');
-  DA.applyPowerup(p, 'boots'); assert(p.bootsT > 0, 'boots timer set');
+  DA.applyPowerup(p, 'spread'); assert(p.spreadT === 30, 'spread lasts 30s');
+  DA.applyPowerup(p, 'boots'); assert(p.bootsT === 30, 'boots last 30s');
   p.hearts = DA.MAX_HEARTS;
   DA.applyPowerup(p, 'heart');
   assert(p.hearts === DA.MAX_HEARTS, 'hearts must not exceed the cap');

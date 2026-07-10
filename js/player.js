@@ -21,15 +21,19 @@
     p.y += p.vy * dt;
     DA.clampToArena(p);
   };
-  DA.updatePlayer = function (p, dt) {
+  // boostsTicking === false freezes spread/boots timers (between fights and rooms,
+  // so a late pickup isn't wasted walking to the exit)
+  DA.updatePlayer = function (p, dt, boostsTicking) {
     var s = DA.input.state(p.x, p.y);
     DA.movePlayer(p, s.moveX, s.moveY, dt);
     if (s.aimX || s.aimY) { p.aimX = s.aimX; p.aimY = s.aimY; }
     p.firing = s.firing;
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
-    if (p.spreadT > 0) p.spreadT -= dt;
-    if (p.bootsT > 0) p.bootsT -= dt;
+    if (boostsTicking !== false) {
+      if (p.spreadT > 0) p.spreadT -= dt;
+      if (p.bootsT > 0) p.bootsT -= dt;
+    }
   };
   DA.drawPlayer = function (ctx, p) {
     if (p.invuln > 0 && Math.floor(p.invuln * 10) % 2 === 0) return; // blink when hit

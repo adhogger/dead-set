@@ -2,7 +2,7 @@
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   var TYPES = ['spread', 'boots', 'heart'];
   var COLORS = { spread: '#ff9f1c', boots: '#4cc9f0', heart: '#d43a4b' };
-  var DURATION = 8;      // seconds of spread/boots effect
+  var DURATION = 30;     // seconds of spread/boots effect (only ticks during combat)
   var LIFETIME = 12;     // seconds before an unclaimed drop despawns
 
   DA.applyPowerup = function (player, type) {
