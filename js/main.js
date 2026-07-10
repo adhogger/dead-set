@@ -44,6 +44,7 @@
     DA.fx.particles.length = 0;
     DA.fx.splats.length = 0;
     DA.fx.popups.length = 0;
+    DA.fx.queue.length = 0;
     var st = {
       mode: 'playing',
       player: DA.makePlayer(),
@@ -181,12 +182,12 @@
     }
   }
 
-  function drawHeart(ctx, x, y, size) {
-    ctx.fillStyle = '#d43a4b';
+  function drawHeart(ctx, x, y, size, filled) {
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, size, size, 6);
     else ctx.rect(x, y, size, size);
-    ctx.fill();
+    if (filled) { ctx.fillStyle = '#d43a4b'; ctx.fill(); }
+    else { ctx.strokeStyle = '#4a3a40'; ctx.lineWidth = 2; ctx.stroke(); }
   }
 
   function drawHud(ctx, st) {
@@ -200,7 +201,14 @@
       label += ' — WAVE ' + waveNo + '/' + wm.room.waves.length;
     }
     ctx.fillText(label, DA.W / 2, 28);
-    for (var i = 0; i < st.player.hearts; i++) drawHeart(ctx, 16 + i * 30, 12, 22);
+    for (var i = 0; i < DA.MAX_HEARTS; i++) drawHeart(ctx, 16 + i * 30, 12, 22, i < st.player.hearts);
+    // current gun, always visible under the hearts
+    var gun = DA.GUNS[st.player.gun] || DA.GUNS.pistol;
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 18px monospace';
+    ctx.fillStyle = gun.color;
+    var gunLabel = gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : '');
+    ctx.fillText(gunLabel, 16, 60);
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#7ee081';

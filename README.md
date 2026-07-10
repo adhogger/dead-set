@@ -16,7 +16,10 @@ that way (right trigger also fires). Press **G** for a raw controller readout if
 Whichever you touched last wins. **M** mutes sound.
 
 Clear a room and the exit doors glow green — walk into one to pick your route (+1 heart,
-+$1000). Grab audience drops: spread shot (orange), speed boots (cyan), extra heart (red).
++$1000). The audience throws gifts: **gun crates** (TRIPLE, SMG, SHOTGUN, MINIGUN, and the
+piercing RAILGUN — each lasts 30 combat-seconds, then back to your pistol), speed boots,
+and extra hearts (never when your 5-heart meter is full). Your current gun shows under
+the heart meter.
 
 ## Tests
 

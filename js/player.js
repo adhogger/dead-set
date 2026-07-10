@@ -4,7 +4,7 @@
   DA.makePlayer = function () {
     return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 260, vx: 0, vy: 0,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false,
-             spreadT: 0, bootsT: 0 };
+             gun: 'pistol', gunT: 0, bootsT: 0 };
   };
   DA.clampToArena = function (e) {
     e.x = DA.clamp(e.x, DA.ARENA.x0 + e.r, DA.ARENA.x1 - e.r);
@@ -31,8 +31,11 @@
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
     if (boostsTicking !== false) {
-      if (p.spreadT > 0) p.spreadT -= dt;
       if (p.bootsT > 0) p.bootsT -= dt;
+      if (p.gunT > 0) {
+        p.gunT -= dt;
+        if (p.gunT <= 0) p.gun = 'pistol'; // crate expired: back to the trusty pistol
+      }
     }
   };
   DA.drawPlayer = function (ctx, p) {
@@ -46,7 +49,7 @@
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = '#f2f2e9';                       // body
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
-    ctx.fillStyle = p.spreadT > 0 ? '#ff9f1c' : '#e8d44d'; // sash (orange = spread shot)
+    ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
     ctx.fillStyle = '#333';                          // gun
     ctx.fillRect(p.r - 3, -2.5, 11, 5);

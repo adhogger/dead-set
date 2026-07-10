@@ -5,6 +5,7 @@
 <h1>Dead Air tests</h1><div id="out"></div>
 <script src="js/util.js"></script>
 <script src="js/input.js"></script>
+<script src="js/effects.js"></script>
 <script src="js/bullets.js"></script>
 <script src="js/enemies.js"></script>
 <script src="js/player.js"></script>
@@ -195,11 +196,11 @@ test('every combat room offers at least 2 exit choices', function () {
 });
 test('boost timers freeze when no combat is active', function () {
   var p = DA.makePlayer();
-  p.spreadT = 10; p.bootsT = 10;
+  p.gun = 'smg'; p.gunT = 10; p.bootsT = 10;
   DA.updatePlayer(p, 1, false);   // 1 simulated second, combat inactive
-  assert(p.spreadT === 10 && p.bootsT === 10, 'timers must not tick between fights');
+  assert(p.gunT === 10 && p.bootsT === 10, 'timers must not tick between fights');
   DA.updatePlayer(p, 1, true);
-  assert(p.spreadT < 10 && p.bootsT < 10, 'timers tick during combat');
+  assert(p.gunT < 10 && p.bootsT < 10, 'timers tick during combat');
 });
 test('room graph: every exit is valid and the boss is reachable', function () {
   var seen = {}, queue = [DA.START_ROOM];
@@ -239,20 +240,61 @@ test('enemy bullets hurt the player once, respecting i-frames', function () {
 });
 test('power-ups apply their effects and hearts cap out', function () {
   var p = DA.makePlayer();
-  DA.applyPowerup(p, 'spread'); assert(p.spreadT === 30, 'spread lasts 30s');
+  DA.applyPowerup(p, 'gun_shotgun'); assert(p.gun === 'shotgun' && p.gunT === 30, 'gun crate equips for 30s');
   DA.applyPowerup(p, 'boots'); assert(p.bootsT === 30, 'boots last 30s');
   p.hearts = DA.MAX_HEARTS;
   DA.applyPowerup(p, 'heart');
   assert(p.hearts === DA.MAX_HEARTS, 'hearts must not exceed the cap');
 });
-test('spread shot fires three bullets, normal fires one', function () {
+test('heart crates never drop when the heart meter is full', function () {
+  var p = DA.makePlayer();
+  p.hearts = DA.MAX_HEARTS;
+  for (var i = 0; i < 60; i++) assert(DA.pickDropType(p) !== 'heart', 'no hearts at full health');
+  p.hearts = 1;
+  var sawHeart = false;
+  for (i = 0; i < 200; i++) if (DA.pickDropType(p) === 'heart') sawHeart = true;
+  assert(sawHeart, 'hearts should drop when hurt');
+});
+test('guns fire their pellet counts and rates', function () {
   var p = DA.makePlayer(), arr = [];
   p.firing = true; p.fireCooldown = 0;
   DA.tryPlayerFire(p, arr);
-  assert(arr.length === 1, 'normal fire = 1 bullet');
-  p.spreadT = 5; p.fireCooldown = 0;
+  assert(arr.length === 1 && p.fireCooldown === DA.GUNS.pistol.rate, 'pistol: 1 bullet');
+  p.gun = 'triple'; p.fireCooldown = 0; arr.length = 0;
   DA.tryPlayerFire(p, arr);
-  assert(arr.length === 4, 'spread fire adds 3 more, got ' + arr.length);
+  assert(arr.length === 3, 'triple: 3 bullets, got ' + arr.length);
+  p.gun = 'shotgun'; p.fireCooldown = 0; arr.length = 0;
+  DA.tryPlayerFire(p, arr);
+  assert(arr.length === 7, 'shotgun: 7 pellets, got ' + arr.length);
+  p.gun = 'minigun'; p.fireCooldown = 0; arr.length = 0;
+  DA.tryPlayerFire(p, arr);
+  assert(p.fireCooldown < DA.GUNS.pistol.rate, 'minigun fires faster than pistol');
+});
+test('railgun bullets pierce and deal triple damage', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  st.enemies.push(DA.makeEnemy('brute', 400, 360));      // 10 hp
+  DA.fireBullet(st.bullets, 400, 360, 1, 0, DA.GUNS.railgun);
+  DA.resolveCombat(st);
+  assert(st.enemies[0].hp === 7, 'railgun deals 3 damage, hp=' + st.enemies[0].hp);
+  assert(st.bullets.length === 1, 'railgun bullet survives the hit');
+  DA.resolveCombat(st);
+  assert(st.enemies[0].hp === 7, 'must not re-hit the same zombie');
+});
+test('gun expires back to pistol after its combat time', function () {
+  var p = DA.makePlayer();
+  DA.applyPowerup(p, 'gun_minigun');
+  DA.updatePlayer(p, 31, true);
+  assert(p.gun === 'pistol' && p.gunT <= 0, 'crate should expire to pistol');
+});
+test('announcements show one at a time from a queue', function () {
+  DA.fx.popups.length = 0; DA.fx.queue.length = 0;
+  DA.announce('FIRST'); DA.announce('SECOND'); DA.announce('THIRD'); DA.announce('FOURTH');
+  DA.updateFx(0.016);
+  assert(DA.fx.popups.length === 1 && DA.fx.popups[0].text === 'FIRST', 'one visible message');
+  assert(DA.fx.queue.length === 1 && DA.fx.queue[0] === 'SECOND', 'overflow dropped, got ' + DA.fx.queue.length);
+  for (var i = 0; i < 100; i++) DA.updateFx(0.016);   // let FIRST expire
+  assert(DA.fx.popups.length === 1 && DA.fx.popups[0].text === 'SECOND', 'next message promoted');
+  DA.fx.popups.length = 0; DA.fx.queue.length = 0;
 });
 
 // combo tests

@@ -1,14 +1,37 @@
 (function () {
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
-  var TYPES = ['spread', 'boots', 'heart'];
-  var COLORS = { spread: '#ff9f1c', boots: '#4cc9f0', heart: '#d43a4b' };
-  var DURATION = 30;     // seconds of spread/boots effect (only ticks during combat)
+  // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
+  var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun'];
+  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b' };
+  var DURATION = 30;     // seconds of gun/boots effect (only ticks during combat)
   var LIFETIME = 12;     // seconds before an unclaimed drop despawns
 
+  function colorOf(type) {
+    if (type.indexOf('gun_') === 0) return DA.GUNS[type.slice(4)].color;
+    return COLORS[type];
+  }
+  function labelOf(type) {
+    if (type.indexOf('gun_') === 0) return DA.GUNS[type.slice(4)].label;
+    return type.toUpperCase();
+  }
+
+  // hearts never drop when the meter is full — no wasted gifts
+  DA.pickDropType = function (player) {
+    var pool = ['boots', 'boots'];
+    if (player.hearts < DA.MAX_HEARTS) pool.push('heart', 'heart');
+    for (var i = 0; i < GUN_TYPES.length; i++) pool.push('gun_' + GUN_TYPES[i]);
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
   DA.applyPowerup = function (player, type) {
-    if (type === 'spread') player.spreadT = DURATION;
-    else if (type === 'boots') player.bootsT = DURATION;
-    else if (type === 'heart') player.hearts = Math.min(player.hearts + 1, DA.MAX_HEARTS);
+    if (type.indexOf('gun_') === 0) {
+      player.gun = type.slice(4);
+      player.gunT = DURATION;
+    } else if (type === 'boots') {
+      player.bootsT = DURATION;
+    } else if (type === 'heart') {
+      player.hearts = Math.min(player.hearts + 1, DA.MAX_HEARTS);
+    }
   };
 
   DA.updatePowerups = function (st, dt) {
@@ -18,13 +41,13 @@
       st.powerupT -= dt;
       if (st.powerupT <= 0) {
         st.powerupT = DA.rand(12, 18);
-        var type = TYPES[Math.floor(Math.random() * TYPES.length)];
+        var type = DA.pickDropType(st.player);
         st.powerups.push({ type: type, t: LIFETIME,
                            x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
                            y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
         if (DA.announce) DA.announce('SPONSOR DROP!');
         if (DA.burst) DA.burst(st.powerups[st.powerups.length - 1].x,
-                               st.powerups[st.powerups.length - 1].y, COLORS[type], 10);
+                               st.powerups[st.powerups.length - 1].y, colorOf(type), 10);
       }
     }
     for (var i = st.powerups.length - 1; i >= 0; i--) {
@@ -33,7 +56,7 @@
       if (pu.t <= 0) { st.powerups.splice(i, 1); continue; }
       if (DA.circleHit(pu.x, pu.y, 14, st.player.x, st.player.y, st.player.r)) {
         DA.applyPowerup(st.player, pu.type);
-        if (DA.burst) DA.burst(pu.x, pu.y, COLORS[pu.type], 14);
+        if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
         if (DA.audio) DA.audio.pickup();
         st.powerups.splice(i, 1);
       }
@@ -49,25 +72,32 @@
       ctx.save();
       ctx.translate(pu.x, pu.y);
       ctx.scale(pulse, pulse);
-      ctx.fillStyle = COLORS[pu.type];
-      if (pu.type === 'spread') {                     // fan of three notches
-        ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(11, 9); ctx.lineTo(-11, 9); ctx.closePath(); ctx.fill();
-      } else if (pu.type === 'boots') {               // boot-ish block
+      ctx.fillStyle = colorOf(pu.type);
+      if (pu.type === 'boots') {                      // boot-ish block
         ctx.fillRect(-9, -11, 10, 16); ctx.fillRect(-9, 5, 18, 7);
-      } else {                                        // heart
+      } else if (pu.type === 'heart') {               // heart
         ctx.beginPath();
         ctx.arc(-5, -3, 6.5, 0, 7); ctx.arc(5, -3, 6.5, 0, 7);
         ctx.moveTo(-11, 0); ctx.lineTo(0, 13); ctx.lineTo(11, 0); ctx.closePath();
         ctx.fill();
+      } else {                                        // gun crate
+        if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.fill(); }
+        else ctx.fillRect(-11, -11, 22, 22);
+        ctx.fillStyle = '#14141c';
+        ctx.fillRect(-7, -2, 14, 5);                  // little gun silhouette
+        ctx.fillRect(2, -5, 5, 4);
       }
       ctx.restore();
+      ctx.fillStyle = colorOf(pu.type);
+      ctx.font = 'bold 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(labelOf(pu.type), pu.x, pu.y + 30);
     }
   };
 
-  // HUD labels for timed effects
+  // HUD labels for timed effects (current gun is drawn separately, always)
   DA.powerupHudLines = function (player) {
     var lines = [];
-    if (player.spreadT > 0) lines.push({ text: 'SPREAD ' + Math.ceil(player.spreadT) + 's', color: COLORS.spread });
     if (player.bootsT > 0) lines.push({ text: 'BOOTS ' + Math.ceil(player.bootsT) + 's', color: COLORS.boots });
     return lines;
   };

@@ -19,9 +19,11 @@
       var killed = false;
       for (var j = st.bullets.length - 1; j >= 0; j--) {
         var b = st.bullets[j];
+        if (b.pierce && b.hit.indexOf(e) !== -1) continue; // railgun hits each zombie once
         if (DA.circleHit(e.x, e.y, e.r, b.x, b.y, b.r)) {
-          st.bullets.splice(j, 1);
-          e.hp--;
+          if (b.pierce) b.hit.push(e);
+          else st.bullets.splice(j, 1);
+          e.hp -= (b.dmg || 1);
           if (e.hp <= 0) { killed = true; break; }
         }
       }

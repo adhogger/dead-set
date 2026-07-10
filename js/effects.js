@@ -1,8 +1,8 @@
 (function () {
   var QUIPS = ['BIG BRAINS!', 'TOTAL CARNAGE!', 'THE CROWD GOES WILD!',
-               'SPONSORED BY GRUEL™', "DON'T TOUCH THE ZOMBIES!", 'AD BREAK CANCELLED!'];
+               'SPONSORED BY GRUEL™', "DON'T TOUCH THE ZOMBIES!"];
 
-  DA.fx = { particles: [], splats: [], popups: [], shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], shake: 0 };
 
   DA.burst = function (x, y, color, n) {
     for (var i = 0; i < n; i++) {
@@ -22,9 +22,11 @@
     if (DA.fx.splats.length > 200) DA.fx.splats.shift();
   };
 
+  // announcements queue up and show ONE at a time; when the booth is backed up
+  // (2 already waiting), extra messages are dropped rather than going stale
   DA.announce = function (text) {
-    DA.fx.popups.push({ text: text, y: 130, life: 1.2, maxLife: 1.2 });
-    if (DA.audio) DA.audio.sting();
+    if (DA.fx.queue.length >= 2) return;
+    DA.fx.queue.push(text);
   };
 
   DA.addShake = function (amount) {
@@ -42,6 +44,10 @@
       var pop = fx.popups[j];
       pop.y -= 25 * dt; pop.life -= dt;
       if (pop.life <= 0) fx.popups.splice(j, 1);
+    }
+    if (fx.popups.length === 0 && fx.queue.length > 0) {  // promote the next message
+      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 1.2, maxLife: 1.2 });
+      if (DA.audio) DA.audio.sting();
     }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
   };
