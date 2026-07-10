@@ -1,7 +1,7 @@
 (function () {
   DA.ARENA = { x0: 40, y0: 40, x1: 1240, y1: 680 };
   DA.makePlayer = function () {
-    return { x: DA.W / 2, y: DA.H / 2, r: 16, speed: 320,
+    return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 320,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false };
   };
   DA.clampToArena = function (e) {
@@ -27,9 +27,9 @@
     ctx.fillStyle = '#f2f2e9';                       // body
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
     ctx.fillStyle = '#e8d44d';                       // contestant sash
-    ctx.fillRect(-p.r, -4, p.r * 2, 8);
+    ctx.fillRect(-p.r, -3, p.r * 2, 6);
     ctx.fillStyle = '#333';                          // gun
-    ctx.fillRect(p.r - 4, -3, 14, 6);
+    ctx.fillRect(p.r - 3, -2.5, 11, 5);
     ctx.restore();
   };
 })();

@@ -1,7 +1,7 @@
 (function () {
   var TYPES = {
-    shambler: { r: 16, speed: 70,  hp: 2, score: 100, color: '#6fae5c' },
-    sprinter: { r: 12, speed: 210, hp: 1, score: 250, color: '#c95d63' }
+    shambler: { r: 12, speed: 70,  hp: 2, score: 100, color: '#6fae5c' },
+    sprinter: { r: 9,  speed: 210, hp: 1, score: 250, color: '#c95d63' }
   };
   // 4 spawn doors: top, bottom, left, right (centered on each wall)
   DA.DOORS = [
@@ -45,8 +45,10 @@
       var e = arr[i];
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
-      ctx.fillStyle = '#1a1a1a'; // dead eyes
-      ctx.fillRect(e.x - 6, e.y - 4, 4, 4); ctx.fillRect(e.x + 2, e.y - 4, 4, 4);
+      ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size
+      var eye = e.r * 0.28, off = e.r * 0.38;
+      ctx.fillRect(e.x - off - eye / 2, e.y - e.r * 0.25, eye, eye);
+      ctx.fillRect(e.x + off - eye / 2, e.y - e.r * 0.25, eye, eye);
     }
   };
 })();

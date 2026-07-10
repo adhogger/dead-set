@@ -1,7 +1,7 @@
 (function () {
   var SPEED = 700, RATE = 0.14; // seconds between shots
   DA.fireBullet = function (arr, x, y, dx, dy) {
-    arr.push({ x: x, y: y, dx: dx, dy: dy, r: 5 });
+    arr.push({ x: x, y: y, dx: dx, dy: dy, r: 4 });
   };
   DA.updateBullets = function (arr, dt) {
     for (var i = arr.length - 1; i >= 0; i--) {
