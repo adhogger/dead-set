@@ -4,7 +4,7 @@
   // Phase 2 (under 50% hp): faster bursts, aimed 3-shot spreads, sprinter minions.
   DA.makeBoss = function () {
     return { type: 'producer', isBoss: true, x: DA.W / 2, y: 190, r: 38,
-             speed: 80, hp: 180, maxHp: 180, score: 10000, color: '#d4a017',
+             speed: 80, hp: 320, maxHp: 320, score: 10000, color: '#d4a017',
              wobble: 0, burstT: 2.5, aimedT: 2, minionT: 6 };
   };
   DA.bossPhase = function (b) { return b.hp <= b.maxHp / 2 ? 2 : 1; };
@@ -19,8 +19,8 @@
 
     b.burstT -= dt;
     if (b.burstT <= 0) {
-      b.burstT = phase === 2 ? 2.2 : 3.2;
-      var n = phase === 2 ? 14 : 10;
+      b.burstT = phase === 2 ? 1.9 : 3.0;
+      var n = phase === 2 ? 16 : 10;
       for (var i = 0; i < n; i++) {
         var a = (i / n) * 6.283 + DA.rand(0, 0.3);
         DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(a), Math.sin(a));

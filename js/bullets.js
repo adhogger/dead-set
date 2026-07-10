@@ -8,7 +8,7 @@
     smg:     { label: 'SMG',     color: '#7ee081', rate: 0.06,  pellets: 1, fan: 0,    jitter: 0.09, speed: 780,  dmg: 1 },
     shotgun: { label: 'SHOTGUN', color: '#c95d63', rate: 0.55,  pellets: 7, fan: 0.55, jitter: 0.05, speed: 620,  dmg: 1 },
     minigun: { label: 'MINIGUN', color: '#5bc8d6', rate: 0.045, pellets: 1, fan: 0,    jitter: 0.18, speed: 720,  dmg: 1 },
-    railgun: { label: 'RAILGUN', color: '#b78bff', rate: 0.65,  pellets: 1, fan: 0,    jitter: 0,    speed: 1200, dmg: 3, pierce: true }
+    railgun: { label: 'RAILGUN', color: '#b78bff', rate: 0.45,  pellets: 1, fan: 0,    jitter: 0,    speed: 1200, dmg: 3, pierce: true }
   };
 
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
