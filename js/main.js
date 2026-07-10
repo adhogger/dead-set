@@ -70,6 +70,31 @@
   var paused = false;
   var pauseWasHeld = false;
 
+  // touch UI: taps starting in the top-right corner pause instead of aiming
+  DA.touchUIBlock = function (x, y) {
+    return DA.state.mode === 'playing' && x > DA.W - 80 && y < 64;
+  };
+
+  function drawTouchUI(ctx) {
+    if (!DA.input.touchActive()) return;
+    var sticks = DA.input.touchSticks();
+    for (var side in sticks) {
+      var s = sticks[side];
+      if (!s) continue;
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(s.ox, s.oy, 70, 0, 7); ctx.stroke();
+      var v = DA.stickVector(s.ox, s.oy, s.cx, s.cy, 70);
+      ctx.fillStyle = side === 'aim' ? 'rgba(232,212,77,0.35)' : 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.arc(s.ox + v.x * 55, s.oy + v.y * 55, 26, 0, 7); ctx.fill();
+    }
+    if (DA.state.mode === 'playing') {          // pause button, top-right corner
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
+      ctx.fillRect(DA.W - 58, 14, 8, 26);
+      ctx.fillRect(DA.W - 42, 14, 8, 26);
+    }
+  }
+
   var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
@@ -167,10 +192,11 @@
     }
     startWasHeld = startHeld;
 
-    // gamepad Start button pauses (edge-triggered)
+    // gamepad Start button or the touch corner button pauses (edge-triggered)
     var pauseHeld = DA.input.padButton(9);
     if (pauseHeld && !pauseWasHeld) paused = !paused;
     pauseWasHeld = pauseHeld;
+    if (DA.input.consumePauseTap()) paused = !paused;
     if (paused) return;
 
     DA.updatePlayer(st.player, dt, st.enemies.length > 0);
@@ -437,9 +463,11 @@
     var st = DA.state;
     if (st.mode === 'title') {
       drawArena(ctx, {});
-      var hint = DA.input.gamepadConnected() ?
-        '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
-        'WASD moves — mouse aims — click fires (or plug in a gamepad)';
+      var hint = DA.input.touchActive() ?
+        'left thumb moves — right thumb aims & fires — tap to start' :
+        (DA.input.gamepadConnected() ?
+          '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
+          'WASD moves — mouse aims — click fires (or plug in a gamepad)');
       var lines = [
         { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 250 },
         { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 300 },
@@ -458,14 +486,19 @@
                              font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
       lines.push({ text: 'Esc pauses · M mutes', font: '15px monospace', color: '#8888a0', y: 572 });
+      if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
+        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 605 });
+      }
       drawCenteredScreen(ctx, lines);
       DA.drawFxOver(ctx);
+      drawTouchUI(ctx);
       drawScreenFx(ctx);
       if (showDebug) drawDebug(ctx);
       return;
     }
 
     drawWorld(ctx, st);
+    drawTouchUI(ctx);
     drawScreenFx(ctx);
     drawHud(ctx, st);
     if (st.mode === 'playing' && st.roomCleared && st.room.map) drawMap(ctx, st);

@@ -61,7 +61,53 @@
   }
 
   var keys = {}, mouse = { x: DA.W / 2, y: DA.H / 2, down: false };
-  var device = 'keyboard'; // or 'gamepad'
+  var device = 'keyboard'; // or 'gamepad' or 'touch'
+
+  // ---- touch: floating twin sticks. Left half moves, right half aims+fires. ----
+  // Pure helper: a stick's deflection as a -1..1 vector with a deadzone.
+  DA.stickVector = function (ox, oy, cx, cy, radius) {
+    var dx = (cx - ox) / radius, dy = (cy - oy) / radius;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 1) { dx /= len; dy /= len; len = 1; }
+    if (len < 0.18) return { x: 0, y: 0, active: false };
+    return { x: dx, y: dy, active: true };
+  };
+
+  var sticks = { move: null, aim: null };   // { id, ox, oy, cx, cy }
+  var pauseTapped = false;
+  function canvasPt(t) { return DA.screenToCanvas(t.clientX, t.clientY, window.innerWidth, window.innerHeight); }
+
+  window.addEventListener('touchstart', function (e) {
+    device = 'touch';
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      var p = canvasPt(t);
+      if (DA.touchUIBlock && DA.touchUIBlock(p.x, p.y)) { pauseTapped = true; continue; }
+      var side = p.x < DA.W / 2 ? 'move' : 'aim';
+      if (!sticks[side]) sticks[side] = { id: t.identifier, ox: p.x, oy: p.y, cx: p.x, cy: p.y };
+    }
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchmove', function (e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var t = e.changedTouches[i];
+      for (var side in sticks) {
+        if (sticks[side] && sticks[side].id === t.identifier) {
+          var p = canvasPt(t);
+          sticks[side].cx = p.x; sticks[side].cy = p.y;
+        }
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+  function endTouch(e) {
+    for (var i = 0; i < e.changedTouches.length; i++) {
+      var id = e.changedTouches[i].identifier;
+      for (var side in sticks) if (sticks[side] && sticks[side].id === id) sticks[side] = null;
+    }
+  }
+  window.addEventListener('touchend', endTouch);
+  window.addEventListener('touchcancel', endTouch);
 
   window.addEventListener('keydown', function (e) { keys[e.code] = true; device = 'keyboard'; });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
@@ -92,15 +138,26 @@
                    firing: (ax !== 0 || ay !== 0 || fireBtn), device: 'gamepad' };
         }
       }
+      if (device === 'touch') {
+        var mv = sticks.move ? DA.stickVector(sticks.move.ox, sticks.move.oy, sticks.move.cx, sticks.move.cy, 70) : { x: 0, y: 0 };
+        var am = sticks.aim ? DA.stickVector(sticks.aim.ox, sticks.aim.oy, sticks.aim.cx, sticks.aim.cy, 70) : { x: 0, y: 0, active: false };
+        var ta = DA.norm(am.x, am.y);
+        return { moveX: mv.x, moveY: mv.y, aimX: ta.x, aimY: ta.y,
+                 firing: !!am.active, device: 'touch' };
+      }
       var mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
       var my = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
       var maim = DA.norm(mouse.x - playerX, mouse.y - playerY);
       return { moveX: mx, moveY: my, aimX: maim.x, aimY: maim.y,
                firing: mouse.down, device: 'keyboard' };
     },
-    // true while any "start the game" input is held: fire, click, Enter or Space
+    touchActive: function () { return device === 'touch'; },
+    touchSticks: function () { return sticks; },
+    consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
+    // true while any "start the game" input is held: fire, click, tap, Enter or Space
     startHeld: function () {
       if (keys.Enter || keys.Space) return true;
+      if (device === 'touch' && (sticks.move || sticks.aim)) return true;
       return DA.input.state(DA.W / 2, DA.H / 2).firing;
     },
     // is a specific gamepad button held right now? (9 = Start, 3 = Y/Triangle)

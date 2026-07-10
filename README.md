@@ -23,7 +23,9 @@ scores and run stats (kills, accuracy, favorite gun) are saved in your browser.
 **Gamepad (recommended):** left stick moves; push the right stick in any direction to fire
 that way (right trigger also fires). Press **G** for a raw controller readout if inputs act oddly.
 **Keyboard + mouse:** WASD moves, mouse aims, click (hold) fires.
-Whichever you touched last wins. **M** mutes sound.
+**Phone / tablet:** floating twin thumbsticks — left half of the screen moves, right half
+aims & fires; tap the top-right corner to pause. Rotate to landscape.
+Whichever you touched last wins. **M** mutes sound and music.
 
 Clear a room and the exit doors glow green — walk into one to pick your route (+1 heart,
 +$1000). The audience throws gifts: **gun crates** (TRIPLE, SMG, SHOTGUN, MINIGUN, and the

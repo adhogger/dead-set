@@ -87,6 +87,17 @@ test('right-stick axis stays locked even when held deflected for ages', function
   axes[2] = 0; axes[5] = 0;                                // release for any later tests
 });
 
+test('touch stick vector: deadzone, direction, and clamping', function () {
+  var dead = DA.stickVector(100, 100, 105, 100, 70);
+  assert(dead.x === 0 && dead.y === 0 && !dead.active, 'tiny wiggle stays in the deadzone');
+  var half = DA.stickVector(100, 100, 135, 100, 70);
+  assert(approx(half.x, 0.5) && half.active, 'half deflection = 0.5');
+  var far = DA.stickVector(100, 100, 100, 400, 70);
+  assert(approx(far.y, 1) && approx(far.x, 0), 'huge drag clamps to 1');
+  var diag = DA.stickVector(0, 0, 70, -70, 70);
+  assert(diag.x > 0.6 && diag.y < -0.6, 'diagonals work');
+});
+
 // player tests
 test('player stays inside arena walls', function () {
   var p = DA.makePlayer();
