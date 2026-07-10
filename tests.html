@@ -354,12 +354,61 @@ test('announcements show one at a time from a queue', function () {
 });
 
 // combo tests
-test('combo climbs on kills and resets after timeout', function () {
+test('combo needs 8 chained kills per step and resets on timeout or hit', function () {
   var st = { combo: 1, comboTimer: 0 };
-  DA.bumpCombo(st); DA.bumpCombo(st);
-  assert(st.combo === 3);
-  DA.updateCombo(st, 5); // 5s passes
-  assert(st.combo === 1);
+  for (var i = 0; i < 7; i++) DA.bumpCombo(st);
+  assert(st.combo === 1, '7 kills is not enough for a step');
+  DA.bumpCombo(st);
+  assert(st.combo === 2, '8th kill earns x2');
+  for (i = 0; i < 16; i++) DA.bumpCombo(st);
+  assert(st.combo === 4, '16 more kills earn two more steps');
+  DA.updateCombo(st, 5);            // chain goes cold
+  assert(st.combo === 1, 'timeout resets');
+  for (i = 0; i < 8; i++) DA.bumpCombo(st);
+  assert(st.combo === 2);
+  DA.resetCombo(st);                // player got hit
+  assert(st.combo === 1 && st.comboKills === 0, 'a hit resets everything');
+});
+test('taking a hit in combat resets the multiplier', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 6, comboKills: 3, comboTimer: 2 };
+  st.enemies.push(DA.makeEnemy('shambler', st.player.x, st.player.y));
+  DA.resolveCombat(st);
+  assert(st.player.hearts === 2 && st.combo === 1, 'hit should cost a heart and the combo');
+});
+test('shield blocks zombie contact and boss bullets', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };
+  st.player.shieldT = 5;
+  st.enemies.push(DA.makeEnemy('shambler', st.player.x, st.player.y));
+  DA.resolveCombat(st);
+  assert(st.player.hearts === 3, 'shield blocks contact');
+  var eb = [];
+  DA.fireEnemyBullet(eb, st.player.x, st.player.y, 1, 0);
+  DA.updateEnemyBullets(eb, st.player, 0.016, st);
+  assert(st.player.hearts === 3 && eb.length === 0, 'shield eats boss bullets');
+});
+test('bomb clears the set and chips the boss without combo credit', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemyBullets: [{x:1,y:1}], enemies: [],
+             score: 0, combo: 5, comboKills: 0, comboTimer: 3 };
+  for (var i = 0; i < 10; i++) st.enemies.push(DA.makeEnemy('shambler', 100 + i * 50, 100));
+  var boss = DA.makeBoss(); st.enemies.push(boss);
+  DA.detonateBomb(st);
+  assert(st.enemies.length === 1 && st.enemies[0].isBoss, 'zombies gone, boss remains');
+  assert(boss.hp === boss.maxHp - 15, 'boss chipped');
+  assert(st.score === 1000, 'flat score, no multiplier: got ' + st.score);
+  assert(st.combo === 5, 'bomb kills must not build the combo');
+  assert(st.enemyBullets.length === 0, 'flak cleared');
+});
+test('boomers fuse near the player, explode, and chain-damage the horde', function () {
+  var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1, comboKills: 0 };
+  var b = DA.makeEnemy('boomer', st.player.x + 50, st.player.y);   // inside fuse range
+  var bystander = DA.makeEnemy('shambler', st.player.x + 90, st.player.y); // inside blast
+  st.enemies.push(b, bystander);
+  DA.updateBoomers(st, 0.016);
+  assert(b.fuse != null, 'fuse lit near the player');
+  DA.updateBoomers(st, 1);                                          // fuse burns out
+  assert(st.enemies.indexOf(b) === -1, 'boomer exploded');
+  assert(st.player.hearts === 2, 'blast hurts the player');
+  assert(st.enemies.length === 0, 'blast killed the bystander too');
 });
 
 // bullet tests

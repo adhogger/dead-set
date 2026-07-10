@@ -164,7 +164,8 @@
     var boss = findBoss(st);
     if (boss) DA.updateBoss(boss, st, dt);
     DA.updateEnemies(st.enemies, st.player, dt);
-    DA.updateEnemyBullets(st.enemyBullets, st.player, dt);
+    DA.updateBoomers(st, dt);
+    DA.updateEnemyBullets(st.enemyBullets, st.player, dt, st);
     DA.resolveCombat(st);
     DA.updateCombo(st, dt);
     DA.updatePowerups(st, dt);

@@ -52,7 +52,8 @@
   DA.fireEnemyBullet = function (arr, x, y, dx, dy) {
     arr.push({ x: x, y: y, dx: dx, dy: dy, r: 6 });
   };
-  DA.updateEnemyBullets = function (arr, player, dt) {
+  // st is optional (sims/tests may omit it) — used for combo reset on hit
+  DA.updateEnemyBullets = function (arr, player, dt, st) {
     for (var i = arr.length - 1; i >= 0; i--) {
       var b = arr[i];
       b.x += b.dx * EB_SPEED * dt; b.y += b.dy * EB_SPEED * dt;
@@ -60,10 +61,17 @@
         arr.splice(i, 1);
         continue;
       }
-      if (player.invuln <= 0 && DA.circleHit(b.x, b.y, b.r, player.x, player.y, player.r)) {
+      if (!DA.circleHit(b.x, b.y, b.r, player.x, player.y, player.r)) continue;
+      if (player.shieldT > 0) {                 // the shield eats the flash
+        arr.splice(i, 1);
+        if (DA.burst) DA.burst(b.x, b.y, '#9ad7ff', 6);
+        continue;
+      }
+      if (player.invuln <= 0) {
         arr.splice(i, 1);
         player.hearts--;
         player.invuln = 1.5;
+        if (st && DA.resetCombo) DA.resetCombo(st);
         if (DA.onPlayerHurt) DA.onPlayerHurt({ player: player });
       }
     }

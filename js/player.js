@@ -4,7 +4,7 @@
   DA.makePlayer = function () {
     return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 240, vx: 0, vy: 0,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false,
-             gun: 'pistol', gunT: 0, bootsT: 0 };
+             gun: 'pistol', gunT: 0, bootsT: 0, shieldT: 0 };
   };
   DA.clampToArena = function (e) {
     e.x = DA.clamp(e.x, DA.ARENA.x0 + e.r, DA.ARENA.x1 - e.r);
@@ -32,6 +32,7 @@
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
     if (boostsTicking !== false) {
       if (p.bootsT > 0) p.bootsT -= dt;
+      if (p.shieldT > 0) p.shieldT -= dt;
       if (p.gunT > 0) {
         p.gunT -= dt;
         if (p.gunT <= 0) p.gun = 'pistol'; // crate expired: back to the trusty pistol
@@ -45,6 +46,14 @@
     if (p.bootsT > 0) {                              // boots trail
       ctx.fillStyle = 'rgba(76, 201, 240, 0.35)';
       ctx.beginPath(); ctx.arc(-p.vx * 0.03, -p.vy * 0.03, p.r + 3, 0, 7); ctx.fill();
+    }
+    if (p.shieldT > 0) {                             // shield bubble
+      var fading = p.shieldT < 2 && Math.floor(p.shieldT * 6) % 2 === 0;
+      if (!fading) {
+        ctx.strokeStyle = 'rgba(154, 215, 255, ' + (0.6 + Math.sin(performance.now() / 120) * 0.25) + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, p.r + 7, 0, 7); ctx.stroke();
+      }
     }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = '#f2f2e9';                       // body

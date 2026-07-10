@@ -27,8 +27,14 @@ Whichever you touched last wins. **M** mutes sound.
 Clear a room and the exit doors glow green — walk into one to pick your route (+1 heart,
 +$1000). The audience throws gifts: **gun crates** (TRIPLE, SMG, SHOTGUN, MINIGUN, and the
 piercing RAILGUN — each lasts 30 combat-seconds, then back to your pistol), speed boots,
-and extra hearts (never when your 5-heart meter is full). Your current gun shows under
-the heart meter.
+**shields** (8s of total protection), **bombs** (instantly clear the set — no multiplier
+credit), and extra hearts (never when your 5-heart meter is full). Your current gun shows
+under the heart meter.
+
+Watch for orange **boomers**: get close and they light a fuse and explode, hurting you and
+everything near them. Shooting one detonates it too — snipe them inside the horde for
+chain reactions. The **multiplier** is earned now: every 8 chained kills raise it one step
+(x9 max), a 3-second gap breaks the chain, and taking any hit resets it to x1.
 
 ## Tests
 

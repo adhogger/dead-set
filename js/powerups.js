@@ -2,9 +2,10 @@
   // Audience drops: the crowd throws sponsor gifts into the arena mid-combat.
   // Gun crates ('gun_smg' etc.) swap the player's weapon for 30 combat-seconds.
   var GUN_TYPES = ['triple', 'smg', 'shotgun', 'minigun', 'railgun'];
-  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b' };
-  var DURATION = 30;     // seconds of gun/boots effect (only ticks during combat)
-  var LIFETIME = 12;     // seconds before an unclaimed drop despawns
+  var COLORS = { boots: '#4cc9f0', heart: '#d43a4b', shield: '#9ad7ff', bomb: '#ffb020' };
+  var DURATION = 30;       // seconds of gun/boots effect (only ticks during combat)
+  var SHIELD_TIME = 8;     // shorter: total protection is strong
+  var LIFETIME = 12;       // seconds before an unclaimed drop despawns
 
   function colorOf(type) {
     if (type.indexOf('gun_') === 0) return DA.GUNS[type.slice(4)].color;
@@ -18,7 +19,7 @@
   // hearts never drop when the meter is full; the same gun never drops twice
   // in a row, and never the one the player is already holding
   DA.pickDropType = function (player, lastGunDrop) {
-    var pool = ['boots', 'boots'];
+    var pool = ['boots', 'boots', 'shield', 'bomb'];   // bomb & shield are rarer than guns
     if (player.hearts < DA.MAX_HEARTS) pool.push('heart', 'heart');
     for (var i = 0; i < GUN_TYPES.length; i++) {
       var g = 'gun_' + GUN_TYPES[i];
@@ -28,12 +29,30 @@
     return pool[Math.floor(Math.random() * pool.length)];
   };
 
+  // Bomb: everything on set dies on camera. Full cash value, but no combo
+  // climb (the audience knows you didn't earn those). Boss takes a chunk.
+  DA.detonateBomb = function (st) {
+    if (DA.addShake) DA.addShake(22);
+    if (DA.announce) DA.announce('BOOM! COURTESY OF GRUEL™');
+    if (DA.audio) DA.audio.roar();
+    for (var i = st.enemies.length - 1; i >= 0; i--) {
+      var e = st.enemies[i];
+      if (e.isBoss) { e.hp -= 15; continue; }
+      st.enemies.splice(i, 1);
+      st.score += e.score;
+      if (DA.onKill) DA.onKill(st, e);
+    }
+    if (st.enemyBullets) st.enemyBullets.length = 0;   // clears the flak too
+  };
+
   DA.applyPowerup = function (player, type) {
     if (type.indexOf('gun_') === 0) {
       player.gun = type.slice(4);
       player.gunT = DURATION;
     } else if (type === 'boots') {
       player.bootsT = DURATION;
+    } else if (type === 'shield') {
+      player.shieldT = SHIELD_TIME;
     } else if (type === 'heart') {
       player.hearts = Math.min(player.hearts + 1, DA.MAX_HEARTS);
     }
@@ -61,7 +80,8 @@
       pu.t -= dt;
       if (pu.t <= 0) { st.powerups.splice(i, 1); continue; }
       if (DA.circleHit(pu.x, pu.y, 14, st.player.x, st.player.y, st.player.r)) {
-        DA.applyPowerup(st.player, pu.type);
+        if (pu.type === 'bomb') DA.detonateBomb(st);
+        else DA.applyPowerup(st.player, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
         if (DA.audio) DA.audio.pickup();
         st.powerups.splice(i, 1);
@@ -81,6 +101,14 @@
       ctx.fillStyle = colorOf(pu.type);
       if (pu.type === 'boots') {                      // boot-ish block
         ctx.fillRect(-9, -11, 10, 16); ctx.fillRect(-9, 5, 18, 7);
+      } else if (pu.type === 'shield') {              // ring
+        ctx.lineWidth = 4; ctx.strokeStyle = COLORS.shield;
+        ctx.beginPath(); ctx.arc(0, 0, 10, 0, 7); ctx.stroke();
+      } else if (pu.type === 'bomb') {                // round bomb + fuse spark
+        ctx.fillStyle = '#22222c';
+        ctx.beginPath(); ctx.arc(0, 2, 10, 0, 7); ctx.fill();
+        ctx.fillStyle = COLORS.bomb;
+        ctx.fillRect(-1.5, -13, 3, 6);
       } else if (pu.type === 'heart') {               // heart
         ctx.beginPath();
         ctx.arc(-5, -3, 6.5, 0, 7); ctx.arc(5, -3, 6.5, 0, 7);
@@ -104,6 +132,7 @@
   // HUD labels for timed effects (current gun is drawn separately, always)
   DA.powerupHudLines = function (player) {
     var lines = [];
+    if (player.shieldT > 0) lines.push({ text: 'SHIELD ' + Math.ceil(player.shieldT) + 's', color: COLORS.shield });
     if (player.bootsT > 0) lines.push({ text: 'BOOTS ' + Math.ceil(player.bootsT) + 's', color: COLORS.boots });
     return lines;
   };

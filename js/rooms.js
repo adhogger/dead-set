@@ -56,6 +56,7 @@
                              { type: 'brute',    count: 4,  interval: 8 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.07 },
                              { type: 'brute',    count: 6,  interval: 7 },
+                             { type: 'boomer',   count: 2,  interval: 8 },
                              { type: 'sprinter', count: 16, interval: 1.5, speed: 145 }] }
       ]
     },
@@ -66,9 +67,11 @@
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 0.07 },
                              { type: 'swarmer',  count: 50, interval: 0.3 },
+                             { type: 'boomer',   count: 2,  interval: 7 },
                              { type: 'sprinter', count: 20, interval: 1.4, speed: 155 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 170, interval: 0.06 },
                              { type: 'brute',    count: 6,  interval: 6 },
+                             { type: 'boomer',   count: 3,  interval: 6 },
                              { type: 'sprinter', count: 24, interval: 1.2, speed: 155 }] }
       ]
     },
@@ -79,9 +82,11 @@
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 0.08 },
                              { type: 'swarmer',  count: 30, interval: 0.35 },
+                             { type: 'boomer',   count: 3,  interval: 6 },
                              { type: 'sprinter', count: 20, interval: 1.3, speed: 165 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
                              { type: 'brute',    count: 5,  interval: 5 },
+                             { type: 'boomer',   count: 4,  interval: 5 },
                              { type: 'sprinter', count: 24, interval: 1.1, speed: 170 }] }
       ]
     },
@@ -107,6 +112,7 @@
     if (n >= 1) groups.push({ type: 'swarmer', count: 10 + n * 4, interval: 0.35 });
     if (n >= 2) groups.push({ type: 'sprinter', count: 4 + n * 2, interval: 1.5,
                               speed: Math.min(120 + n * 5, 180) });
+    if (n >= 3) groups.push({ type: 'boomer', count: 1 + Math.floor(n / 3), interval: 6 });
     if (n >= 4) groups.push({ type: 'brute', count: Math.floor(n / 2), interval: 7 });
     return { doors: Math.min(1 + Math.floor(n / 3), 3), groups: groups };
   };
