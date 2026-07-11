@@ -411,6 +411,23 @@
       st.newBestWaves = st.waveManager.wave > bw;
       if (st.newBestWaves) store('deadset_best_waves', String(st.waveManager.wave));
     }
+    // Syndication runs post to the worldwide board for their seed
+    if (st.room.ep === 'syn' && st.room.seed && DA.lb) {
+      var nm = DA.lb.initials();
+      if (!nm) {
+        var typed = null;
+        try { typed = prompt('YOUR NAME FOR THE GLOBAL BOARD (up to 8 letters):', 'ACE'); } catch (e3) {}
+        nm = DA.lb.setInitials(typed || '');
+      }
+      if (nm) {
+        st.globalRank = 'sending';
+        DA.lb.submit(st.room.seed, { name: nm, score: st.score, won: won, rooms: st.roomsCleared },
+          function (d) {
+            st.globalRank = d && d.rank ? d.rank : null;
+            if (d && d.top) st.globalTop = d.top;
+          });
+      }
+    }
     DA.announce(won ? "THAT'S A WRAP!" : 'CUT TO COMMERCIAL!');
   }
 
@@ -1006,6 +1023,12 @@
       }
       lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
                     font: 'bold 22px monospace', color: '#b78bff', y: 494 });
+      if (DA.lb && DA.lb.today && DA.lb.today.length && DA.lb.todaySeed === synSeed()) {
+        var podium = DA.lb.today.slice(0, 3).map(function (s, i) {
+          return (i + 1) + '. ' + s.name + ' $' + s.score.toLocaleString('en-US');
+        }).join('   ');
+        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: 515 });
+      }
       var best = load('deadset_best');
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
                              font: 'bold 20px monospace', color: '#e8d44d', y: 524 });
@@ -1063,6 +1086,10 @@
       if (st.room.ep === 'syn') {
         go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
                   font: '16px monospace', color: '#b78bff', y: 538 });
+        if (st.globalRank && st.globalRank !== 'sending') {
+          go.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + ' on this episode',
+                    font: 'bold 22px monospace', color: '#b78bff', y: 512 });
+        }
       }
       go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
       if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 598 });
@@ -1083,6 +1110,10 @@
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 288 }
       ].concat(statsLines(st, 334)).concat(topFiveLines(st, 404));
+      if (st.room.ep === 'syn' && st.globalRank && st.globalRank !== 'sending') {
+        w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
+                 font: 'bold 22px monospace', color: '#b78bff', y: 534 });
+      }
       w.push({ text: isFinale ? 'Thanks for watching SLASH TV — stay tuned for Season 2' :
                                 'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E',
                font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
