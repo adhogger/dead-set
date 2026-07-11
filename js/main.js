@@ -43,6 +43,12 @@
       p.vx = 0; p.vy = 0;
       p.downed = false; p.reviveP = 0;
     }
+    if (st.room.gift) {                     // the sponsors left something out for you
+      var GUNS = ['triple', 'smg', 'shotgun', 'minigun', 'railgun'];
+      st.powerups.push({ id: DA.newId(), type: 'heart', t: 60, x: DA.W / 2 - 60, y: DA.H / 2 });
+      st.powerups.push({ id: DA.newId(), type: 'gun_' + GUNS[Math.floor(Math.random() * GUNS.length)],
+                         t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });
+    }
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() : DA.makeBoss();
       st.enemies.push(boss);
@@ -182,6 +188,7 @@
   DA.touchUIBlock = function (x, y) {
     if (DA.state.mode === 'playing' && x > DA.W - 80 && y < 64) return true;
     if (DA.state.mode === 'title' && y > 598 && y < 638) return 'bot';
+    if (DA.state.mode === 'title' && y > 474 && y < 510) return 'syn';
     return false;
   };
 
@@ -205,6 +212,13 @@
     }
   }
 
+  function synSeed() {
+    try {
+      var q = (typeof location !== 'undefined' && location.search.match(/[?&]seed=([A-Za-z0-9_-]+)/));
+      if (q) return q[1];
+    } catch (e) {}
+    return DA.dailySeed();
+  }
   var botOn = load('deadset_bot') === '1';
   function toggleBot() {
     botOn = !botOn;
@@ -255,14 +269,16 @@
       ctx.beginPath(); ctx.arc(z.x, z.y, z.r * bob, 0, 7); ctx.fill();
     }
   }
-  var endlessKeyHeld = false, ep2KeyHeld = false;
+  var endlessKeyHeld = false, ep2KeyHeld = false, synKeyHeld = false, synWasHeld = false;
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = true;
     if (e.code === 'Digit2') ep2KeyHeld = true;
+    if (e.code === 'Digit3') synKeyHeld = true;
   });
   window.addEventListener('keyup', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = false;
     if (e.code === 'Digit2') ep2KeyHeld = false;
+    if (e.code === 'Digit3') synKeyHeld = false;
   });
 
   function endlessUnlocked() { return load('deadset_ep1') === '1'; }
@@ -378,7 +394,8 @@
     try { runs = JSON.parse(load('deadset_runs') || '[]'); } catch (e2) { runs = []; }
     st.runStamp = Date.now();
     runs.unshift({ s: st.score,
-                   m: st.room.endless ? 'ARENA' : (st.room.ep === 2 ? 'EP 2' : 'EP 1'),
+                   m: st.room.endless ? 'ARENA' :
+                      (st.room.ep === 'syn' ? 'SYN' : (st.room.ep === 2 ? 'EP 2' : 'EP 1')),
                    d: st.runStamp });
     if (runs.length > 30) runs.length = 30;
     store('deadset_runs', JSON.stringify(runs));
@@ -436,6 +453,12 @@
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
       var ep2Held = ep2KeyHeld || DA.input.padButton(2);
       if (ep2Unlocked() && ep2Held && !ep2WasHeld) DA.state = newGame('writers');
+      var synHeld = synKeyHeld || DA.input.padButton(5);
+      var synTap = st.mode === 'title' && DA.input.consumeSynTap && DA.input.consumeSynTap();
+      if ((synHeld && !synWasHeld) || synTap) {
+        DA.state = newGame(DA.generateEpisode(synSeed()).startId);
+      }
+      synWasHeld = synHeld;
       var botHeld = DA.input.padButton(4);
       if (st.mode === 'title' && botHeld && !botWasHeld) toggleBot();
       botWasHeld = botHeld;
@@ -733,9 +756,18 @@
 
   // the studio map: shown while choosing an exit, and while paused
   function drawMap(ctx, st) {
-    var ox = DA.W - 330, oy = DA.H - 130, sx = 62, sy = 56;
+    var ep = st.room.ep || 1;
+    var maxX = 0, maxY = 0, mid, mroom;
+    for (mid in DA.ROOMS) {
+      mroom = DA.ROOMS[mid];
+      if (!mroom.map || (mroom.ep || 1) !== ep) continue;
+      if (mroom.map.x > maxX) maxX = mroom.map.x;
+      if (mroom.map.y > maxY) maxY = mroom.map.y;
+    }
+    var sx = 62, sy = 46;
+    var ox = DA.W - 56 - maxX * sx, oy = DA.H - 66 - maxY * sy;
     ctx.fillStyle = 'rgba(10, 10, 15, 0.82)';
-    ctx.fillRect(ox - 34, oy - 44, 344, 122);
+    ctx.fillRect(ox - 34, oy - 44, maxX * sx + 68, maxY * sy + 88);
     ctx.fillStyle = '#8888a0';
     ctx.font = 'bold 13px monospace';
     ctx.textAlign = 'left';
@@ -743,7 +775,6 @@
     ctx.strokeStyle = '#3a3a48';
     ctx.lineWidth = 2;
     var id, room;
-    var ep = st.room.ep || 1;                          // only this episode's floor plan
     for (id in DA.ROOMS) {                             // corridors
       room = DA.ROOMS[id];
       if (!room.map || (room.ep || 1) !== ep) continue;
@@ -956,10 +987,12 @@
         lines.push({ text: 'E (or 🎮 Y) — ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
                      font: 'bold 22px monospace', color: '#5bc8d6', y: 462 });
       }
+      lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
+                    font: 'bold 22px monospace', color: '#b78bff', y: 494 });
       var best = load('deadset_best');
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
-                             font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
-      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
+                             font: 'bold 20px monospace', color: '#e8d44d', y: 524 });
+      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 548 });
       lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: 572 });
     lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
                  font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 });
@@ -1010,6 +1043,10 @@
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 268 }
       ].concat(statsLines(st, 316)).concat(topFiveLines(st, 396));
+      if (st.room.ep === 'syn') {
+        go.push({ text: "TONIGHT'S SEED: #" + st.room.seed + '  ·  challenge a friend: ?seed=' + st.room.seed,
+                  font: '16px monospace', color: '#b78bff', y: 538 });
+      }
       go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
       if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 598 });
       drawCenteredScreen(ctx, go);
