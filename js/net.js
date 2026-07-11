@@ -128,17 +128,30 @@
   };
 
   // ---------------- guest ----------------
+  var retries = 0;
   N.join = function (code) {
     var url = relayUrl();
     if (!url) { N.status = 'error'; baseAnn('NO RELAY SET: SEE server/README'); return; }
+    N.joinCode = code;
     ws = new WebSocket(url + (url.indexOf('?') < 0 ? '?' : '&') + 'join=' + code);
     N.status = 'joining';
-    ws.onmessage = function (ev) { guestMsg(JSON.parse(ev.data)); };
+    ws.onmessage = function (ev) { retries = 0; guestMsg(JSON.parse(ev.data)); };
     ws.onerror = function () { N.status = 'error'; };
     ws.onclose = function () {
-      N.status = 'off'; N.guestActive = false;
+      var wasLive = N.guestActive;
+      N.guestActive = false;
       if (inputTimer) { clearInterval(inputTimer); inputTimer = null; }
-      baseAnn('FEED LOST: THANKS FOR WATCHING');
+      // reconnect grace: if we were mid-show, chase the same room code —
+      // CAM-BOT covers our seat on the host until we're back
+      if (wasLive && retries < 5) {
+        retries++;
+        N.status = 'reconnecting';
+        baseAnn('SIGNAL DROPPED — RE-ESTABLISHING (' + retries + '/5)');
+        setTimeout(function () { N.join(N.joinCode); }, 2500);
+      } else {
+        N.status = 'off';
+        baseAnn('FEED LOST: THANKS FOR WATCHING');
+      }
     };
   };
   function guestMsg(m) {

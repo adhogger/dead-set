@@ -883,6 +883,17 @@
       ctx.fillStyle = puLines[k].color;
       ctx.fillText(puLines[k].text, DA.W - 20, 90 + k * 22);
     }
+    // co-op link quality, both ends
+    if (DA.net && ((DA.net.status === 'hosting' && DA.net.remoteJoined) || DA.net.guestActive)) {
+      var ping = DA.net.ping || 0;
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = ping < 80 ? '#7ee081' : (ping < 150 ? '#e8d44d' : '#d43a4b');
+      ctx.fillText('LINK ' + ping + 'ms', DA.W - 20, 90 + puLines.length * 22);
+    } else if (DA.net && DA.net.status === 'reconnecting') {
+      ctx.font = 'bold 14px monospace';
+      ctx.fillStyle = '#d43a4b';
+      ctx.fillText('LINK LOST — RETRYING', DA.W - 20, 90 + puLines.length * 22);
+    }
     var boss = findBoss(st);
     if (boss) DA.drawBossBar(ctx, boss);
   }
