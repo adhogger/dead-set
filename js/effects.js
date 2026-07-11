@@ -1,6 +1,6 @@
 (function () {
   // The presenter. Tone: Black Mirror / Banksy / Monkey Dust — bitter,
-  // satirical, slightly gritty. One fires every 20 kills.
+  // satirical, slightly gritty. One fires every 25 kills.
   var QUIPS = [
     'THE SPONSORS LOVE YOU. FOR NOW.',
     'RATINGS UP 3%. KEEP BLEEDING.',
@@ -107,7 +107,7 @@
       if (pop.life <= 0) fx.popups.splice(j, 1);
     }
     if (fx.popups.length === 0 && fx.queue.length > 0) {  // promote the next message
-      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 1.2, maxLife: 1.2 });
+      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 2.0, maxLife: 2.0 });
       if (DA.audio) DA.audio.sting();
     }
     for (var c = fx.corpses.length - 1; c >= 0; c--) {
@@ -168,7 +168,7 @@
     DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
     if (DA.audio) DA.audio.splat();
-    if (st.kills % 20 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+    if (st.kills % 25 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
   };
   DA.onPlayerHurt = function (st) {
     DA.addShake(10);
@@ -176,7 +176,7 @@
     if (DA.audio) DA.audio.hurt();
   };
   DA.onWaveStart = function (n) {
-    DA.announce('WAVE ' + n);
+    if (n > 1) DA.announce('WAVE ' + n);   // wave 1 follows the room name: let it breathe
     if (DA.audio) DA.audio.wave();
   };
 })();

@@ -14,6 +14,16 @@
     { dir: 'N', x: DA.W / 2, y: 20 }, { dir: 'S', x: DA.W / 2, y: DA.H - 20 },
     { dir: 'W', x: 20, y: DA.H / 2 }, { dir: 'E', x: DA.W - 20, y: DA.H / 2 }
   ];
+  // nearest player that's still on their feet (falls back to the first)
+  DA.nearestPlayer = function (players, x, y) {
+    var best = players[0], bd = Infinity;
+    for (var i = 0; i < players.length; i++) {
+      if (players[i].downed) continue;
+      var d = DA.dist2(players[i].x, players[i].y, x, y);
+      if (d < bd) { bd = d; best = players[i]; }
+    }
+    return best;
+  };
   DA.doorByDir = function (dir) {
     for (var i = 0; i < DA.DOORS.length; i++) if (DA.DOORS[i].dir === dir) return DA.DOORS[i];
     return null;
@@ -30,7 +40,7 @@
   };
   DA.makeEnemy = function (type, x, y, speed) {
     var t = TYPES[type];
-    return { type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
+    return { id: DA.newId(), type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
              score: t.score, color: t.color, wobble: Math.random() * 6.28,
              heading: null, flank: DA.rand(-0.4, 0.4) };
   };
@@ -46,11 +56,14 @@
     arr.push(e);
   };
   DA.updateEnemies = function (arr, player, dt) {
+    var players = player.length != null ? player : [player];   // object or array
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
+      var player = DA.nearestPlayer(players, e.x, e.y);
       if (e.grace > 0) e.grace -= dt;
       if (e.isBoss) continue; // the boss moves itself (js/boss.js)
       var sp = e.speed;
+      if (e.grace > 0) sp *= 0.5;             // still stepping through the door
       if (e.type === 'stalker') {
         e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
         if (DA.stalkerFaint(e)) sp *= 1.5;
@@ -84,17 +97,20 @@
         DA.clampToArena(ea); DA.clampToArena(eb);
       }
     }
-    // player wall: zombies press against the player's edge but can never merge
-    // with it (a merged zombie would sit behind the bullet spawn point and be unhittable)
+    // player wall: zombies press against each player's edge but can never merge
+    // with them (a merged zombie would sit behind the bullet spawn point and be unhittable)
     for (var k = 0; k < arr.length; k++) {
       var ez = arr[k];
-      var minD = player.r + ez.r;
-      var out = DA.norm(ez.x - player.x, ez.y - player.y);
-      if (out.len >= minD) continue;
-      if (out.len === 0) { out.x = Math.cos(ez.wobble); out.y = Math.sin(ez.wobble); }
-      ez.x = player.x + out.x * minD;
-      ez.y = player.y + out.y * minD;
-      DA.clampToArena(ez);
+      for (var pw = 0; pw < players.length; pw++) {
+        var pl = players[pw];
+        var minD = pl.r + ez.r;
+        var out = DA.norm(ez.x - pl.x, ez.y - pl.y);
+        if (out.len >= minD) continue;
+        if (out.len === 0) { out.x = Math.cos(ez.wobble); out.y = Math.sin(ez.wobble); }
+        ez.x = pl.x + out.x * minD;
+        ez.y = pl.y + out.y * minD;
+        DA.clampToArena(ez);
+      }
     }
   };
   // Boomers light a 0.8s fuse near the player, then detonate. Called from the
@@ -106,8 +122,9 @@
       var e = st.enemies[i];
       if (e.type !== 'boomer') continue;
       if (e.fuse == null) {
-        if (!(e.grace > 0) &&
-            DA.dist2(e.x, e.y, st.player.x, st.player.y) < FUSE_RANGE * FUSE_RANGE) {
+        var near = DA.nearestPlayer(st.players || [st.player], e.x, e.y);
+        if (!(e.grace > 0) && !near.downed &&
+            DA.dist2(e.x, e.y, near.x, near.y) < FUSE_RANGE * FUSE_RANGE) {
           e.fuse = FUSE_TIME;
         }
       } else {
@@ -127,13 +144,17 @@
     if (DA.splat) DA.splat(x, y);
     if (DA.addShake) DA.addShake(12);
     if (DA.audio) DA.audio.roar();
-    var p = st.player;
-    if (DA.dist2(x, y, p.x, p.y) < BLAST_RADIUS * BLAST_RADIUS &&
-        p.invuln <= 0 && !(p.shieldT > 0)) {
-      p.hearts--;
-      p.invuln = 1.5;
-      if (DA.resetCombo) DA.resetCombo(st);
-      if (DA.onPlayerHurt) DA.onPlayerHurt(st);
+    var ps = st.players || [st.player];
+    for (var pb = 0; pb < ps.length; pb++) {
+      var p = ps[pb];
+      if (p.downed) continue;
+      if (DA.dist2(x, y, p.x, p.y) < BLAST_RADIUS * BLAST_RADIUS &&
+          p.invuln <= 0 && !(p.shieldT > 0)) {
+        p.hearts--;
+        p.invuln = 1.5;
+        if (!p.bot && DA.comboHit) DA.comboHit(st);   // the bot tanking doesn't cost the streak
+        if (DA.onPlayerHurt) DA.onPlayerHurt({ player: p });
+      }
     }
     for (var i = st.enemies.length - 1; i >= 0; i--) {   // chain damage
       var e = st.enemies[i];

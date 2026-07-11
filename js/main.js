@@ -29,15 +29,20 @@
     st.lastWave = 0;
     DA.fx.splats.length = 0;   // fresh floor for a fresh studio
     DA.fx.corpses.length = 0;
-    var p = st.player;
-    if (entryDir) {            // walk in through the door we came from
-      var d = DA.doorByDir(entryDir);
-      p.x = DA.clamp(d.x, DA.ARENA.x0 + 80, DA.ARENA.x1 - 80);
-      p.y = DA.clamp(d.y, DA.ARENA.y0 + 80, DA.ARENA.y1 - 80);
-    } else {
-      p.x = DA.W / 2; p.y = DA.H / 2;
+    for (var pi = 0; pi < st.players.length; pi++) {
+      var p = st.players[pi];
+      var off = (pi === 0 ? -1 : 1) * 26;    // shoulder to shoulder, not stacked
+      if (entryDir) {                        // walk in through the door we came from
+        var d = DA.doorByDir(entryDir);
+        var horiz = entryDir === 'N' || entryDir === 'S';
+        p.x = DA.clamp(d.x + (horiz ? off : 0), DA.ARENA.x0 + 80, DA.ARENA.x1 - 80);
+        p.y = DA.clamp(d.y + (horiz ? 0 : off), DA.ARENA.y0 + 80, DA.ARENA.y1 - 80);
+      } else {
+        p.x = DA.W / 2 + off; p.y = DA.H / 2;
+      }
+      p.vx = 0; p.vy = 0;
+      p.downed = false; p.reviveP = 0;
     }
-    p.vx = 0; p.vy = 0;
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() : DA.makeBoss();
       st.enemies.push(boss);
@@ -49,6 +54,7 @@
   }
 
   function newGame(startRoom) {
+    DA._id = 1;                                 // fresh run, fresh entity ids
     DA.fx.particles.length = 0;
     DA.fx.splats.length = 0;
     DA.fx.popups.length = 0;
@@ -61,8 +67,14 @@
       roomsCleared: 0, groanT: 3, visited: {},
       stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() }
     };
+    st.players = [st.player];                 // st.player stays the human, always
+    if (botOn) {
+      var buddy = DA.makePlayer();
+      buddy.bot = true;
+      st.players.push(buddy);
+    }
     enterRoom(st, startRoom || DA.START_ROOM, null);
-    if (st.room.ep === 2) st.player.hearts = DA.MAX_HEARTS; // champions start refreshed
+    if (st.room.ep === 2) st.players.forEach(function (cp) { cp.hearts = DA.MAX_HEARTS; }); // champions start refreshed
     return st;
   }
 
@@ -164,10 +176,13 @@
   var endlessWasHeld = false;
   var paused = false;
   var pauseWasHeld = false;
+  var botWasHeld = false;
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
   DA.touchUIBlock = function (x, y) {
-    return DA.state.mode === 'playing' && x > DA.W - 80 && y < 64;
+    if (DA.state.mode === 'playing' && x > DA.W - 80 && y < 64) return true;
+    if (DA.state.mode === 'title' && y > 598 && y < 638) return 'bot';
+    return false;
   };
 
   function drawTouchUI(ctx) {
@@ -190,6 +205,12 @@
     }
   }
 
+  var botOn = load('deadset_bot') === '1';
+  function toggleBot() {
+    botOn = !botOn;
+    store('deadset_bot', botOn ? '1' : '0');
+    DA.announce(botOn ? 'CAM-BOT JOINS THE SHOW' : 'CAM-BOT BENCHED');
+  }
   var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
@@ -199,6 +220,12 @@
       try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
       DA.announce(DA.fx.shakeOn ? 'SHAKE ON' : 'SHAKE OFF');
     }
+    if (e.code === 'KeyV' && DA.broadcast) {   // broadcast fx toggle, remembered
+      DA.broadcast.on = !DA.broadcast.on;
+      try { localStorage.setItem('deadset_bfx', DA.broadcast.on ? '1' : '0'); } catch (err) {}
+      DA.announce(DA.broadcast.on ? 'BROADCAST FX ON' : 'BROADCAST FX OFF');
+    }
+    if (e.code === 'KeyB' && DA.state.mode === 'title') toggleBot();
     if (e.code === 'KeyI' && DA.state.mode === 'title') DA.state = { mode: 'intro', page: 0 };
   });
 
@@ -256,11 +283,22 @@
     for (var i = 0; i < lines.length; i++) ctx.fillText(lines[i], 60, DA.H - 36 - (lines.length - 1 - i) * 20);
   }
 
-  var last = performance.now();
+  // Simulation runs at a locked 60 Hz under a free-running render. This makes
+  // the game identical on 60/120/144 Hz displays and — critically for online
+  // co-op — makes the host's ticks and the guest's prediction use the same
+  // arithmetic. debugFrame below still single-steps for the tests.
+  var TICK = 1 / 60;
+  var last = performance.now(), acc = 0;
   function frame(now) {
-    var dt = Math.min((now - last) / 1000, 0.05); // cap dt: tab-switch safety
+    acc += Math.min((now - last) / 1000, 0.1);  // clamp: tab-switch safety
     last = now;
-    update(dt);
+    var steps = 0;
+    while (acc >= TICK && steps < 4) {          // catch up, but never spiral
+      update(TICK);
+      acc -= TICK;
+      steps++;
+    }
+    if (steps === 4) acc = 0;                   // hopelessly behind: drop the debt
     render(ctx);
     requestAnimationFrame(frame);
   }
@@ -273,22 +311,70 @@
   function checkExits(st) {
     for (var dir in st.room.exits) {
       var d = DA.doorByDir(dir);
-      if (DA.dist2(st.player.x, st.player.y, d.x, d.y) < 48 * 48) {
-        st.roomsCleared++;
-        st.score += 1000;
-        st.player.hearts = Math.min(st.player.hearts + 1, DA.MAX_HEARTS);
-        enterRoom(st, st.room.exits[dir], DA.oppositeDir(dir));
-        return;
+      for (var pi = 0; pi < st.players.length; pi++) {
+        var p = st.players[pi];
+        if (p.downed) continue;
+        if (DA.dist2(p.x, p.y, d.x, d.y) < 48 * 48) {
+          st.roomsCleared++;
+          st.score += 1000;
+          st.players.forEach(function (hp) { hp.hearts = Math.min(hp.hearts + 1, DA.MAX_HEARTS); });
+          enterRoom(st, st.room.exits[dir], DA.oppositeDir(dir));
+          return;
+        }
       }
     }
   }
 
+  // Death is a scene now, not a cut: the contestant drops, the horde closes
+  // in over a few seconds, the heartbeat gives out, and we fade to black.
+  DA.DEATH_T = 3.8;
+  function updateRevive(st, dt) {
+    if (st.players.length < 2) return;
+    for (var i = 0; i < st.players.length; i++) {
+      var d = st.players[i];
+      if (!d.downed) continue;
+      var o = st.players[1 - i];
+      if (!o.downed && o.hearts > 0 && DA.dist2(o.x, o.y, d.x, d.y) < 52 * 52) {
+        d.reviveP = (d.reviveP || 0) + dt / 3;       // three seconds of helping hand
+        if (d.reviveP >= 1) {
+          d.downed = false; d.reviveP = 0; d.hearts = 2; d.invuln = 2;
+          DA.announce('BACK IN THE GAME!');
+          if (DA.audio) DA.audio.pickup();
+        }
+      } else if (d.reviveP > 0) {
+        d.reviveP = Math.max(0, d.reviveP - dt / 2); // help interrupted
+      }
+    }
+  }
+  function startDying(st) {
+    st.mode = 'dying';
+    st.deathT = DA.DEATH_T;
+    st.dead = true;
+    st.players.forEach(function (dp) { dp.dead = true; dp.firing = false; });
+    st.player.firing = false;
+    startWasHeld = true;               // require a fresh press to skip the scene
+    if (DA.audio) DA.audio.death();
+    if (DA.broadcast) DA.broadcast.glitch = Math.max(DA.broadcast.glitch, 0.4);
+    DA.addShake(16);
+    DA.splat(st.player.x, st.player.y);
+  }
+
   function endRun(st, won) {
     st.mode = won ? 'winner' : 'gameover';
+    if (!won && st.dead) st.goFade = 0.7;          // rise out of the death fade
     st.stats.seconds = Math.round((performance.now() - st.stats.start) / 1000);
     var best = parseInt(load('deadset_best') || '0', 10);
     st.newBest = st.score > best;
     if (st.newBest) store('deadset_best', String(st.score));
+    // remember the run for the TOP 5 board (newest first, capped)
+    var runs = [];
+    try { runs = JSON.parse(load('deadset_runs') || '[]'); } catch (e2) { runs = []; }
+    st.runStamp = Date.now();
+    runs.unshift({ s: st.score,
+                   m: st.room.endless ? 'ARENA' : (st.room.ep === 2 ? 'EP 2' : 'EP 1'),
+                   d: st.runStamp });
+    if (runs.length > 30) runs.length = 30;
+    store('deadset_runs', JSON.stringify(runs));
     if (won) {
       store('deadset_ep1', '1');
       if (st.room.ep === 2) store('deadset_ep2', '1');
@@ -317,8 +403,24 @@
       DA.updateFx(dt);
       return;
     }
+    if (st.mode === 'dying') {
+      st.deathT -= dt;
+      DA.updateEnemies(st.enemies, st.players, dt * 0.5);  // the horde closes in
+      DA.updateBullets(st.bullets, dt);                    // stray shots finish flying
+      DA.updateFx(dt);
+      st.bloodT = (st.bloodT || 0) - dt;
+      if (st.bloodT <= 0) {                                // the pool spreads
+        st.bloodT = 0.3;
+        DA.splat(st.player.x + DA.rand(-12, 12), st.player.y + DA.rand(-10, 10));
+      }
+      if (startHeld && !startWasHeld) st.deathT = Math.min(st.deathT, 0.6); // fire skips ahead
+      startWasHeld = startHeld;
+      if (st.deathT <= 0) endRun(st, false);
+      return;
+    }
     if (st.mode !== 'playing') {
       paused = false;
+      if (st.goFade > 0) st.goFade -= dt;
       if (startHeld && !startWasHeld) {
         DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
                    { mode: 'intro', page: 0 } : newGame();
@@ -327,6 +429,10 @@
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
       var ep2Held = ep2KeyHeld || DA.input.padButton(2);
       if (ep2Unlocked() && ep2Held && !ep2WasHeld) DA.state = newGame('writers');
+      var botHeld = DA.input.padButton(4);
+      if (st.mode === 'title' && botHeld && !botWasHeld) toggleBot();
+      botWasHeld = botHeld;
+      if (st.mode === 'title' && DA.input.consumeBotTap && DA.input.consumeBotTap()) toggleBot();
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
       ep2WasHeld = ep2Held;
@@ -343,8 +449,16 @@
     if (DA.input.consumePauseTap()) paused = !paused;
     if (paused) return;
 
-    DA.updatePlayer(st.player, dt, st.enemies.length > 0);
-    st.stats.shots += DA.tryPlayerFire(st.player, st.bullets);
+    var fighting = st.enemies.length > 0;
+    for (var pi = 0; pi < st.players.length; pi++) {
+      var pl = st.players[pi];
+      var inp = pl.bot ? DA.botInput(st, pl, dt) : DA.input.state(pl.x, pl.y);
+      DA.updatePlayer(pl, inp, dt, fighting);
+      if (!pl.downed) {
+        var fired = DA.tryPlayerFire(pl, st.bullets);
+        if (!pl.bot) st.stats.shots += fired;    // accuracy tracks the human
+      }
+    }
     DA.updateBullets(st.bullets, dt);
     DA.updateWaves(st.waveManager, st.enemies, dt);
     var boss = findBoss(st);
@@ -352,9 +466,9 @@
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
     }
-    DA.updateEnemies(st.enemies, st.player, dt);
+    DA.updateEnemies(st.enemies, st.players, dt);
     DA.updateBoomers(st, dt);
-    DA.updateEnemyBullets(st.enemyBullets, st.player, dt, st);
+    DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
     DA.updateCombo(st, dt);
     DA.updatePowerups(st, dt);
@@ -364,7 +478,7 @@
     if (st.room.endless && st.waveManager.wave > st.lastWave) {
       st.lastWave = st.waveManager.wave;
       if (st.lastWave % 3 === 0) {
-        st.player.hearts = Math.min(st.player.hearts + 1, DA.MAX_HEARTS);
+        st.players.forEach(function (gp) { gp.hearts = Math.min(gp.hearts + 1, DA.MAX_HEARTS); });
         DA.announce('AUDIENCE GIFT: +1 HEART');
       }
     }
@@ -376,12 +490,29 @@
       if (st.enemies.length > 0 && DA.audio) DA.audio.groan();
     }
 
-    if (st.player.hearts <= 0) { endRun(st, false); return; }
+    for (pi = 0; pi < st.players.length; pi++) {
+      var pd = st.players[pi];
+      if (pd.hearts > 0 || pd.downed) continue;
+      var partnerUp = false;
+      for (var pj = 0; pj < st.players.length; pj++) {
+        if (pj !== pi && !st.players[pj].downed && st.players[pj].hearts > 0) partnerUp = true;
+      }
+      if (partnerUp) {                        // downed, not out: a partner can help
+        pd.downed = true; pd.reviveP = 0;
+        DA.addShake(10);
+        DA.announce(pd.bot ? 'CAM-BOT IS DOWN!' : 'CONTESTANT DOWN!');
+        if (DA.audio) DA.audio.hurt();
+      } else { startDying(st); return; }
+    }
+    updateRevive(st, dt);
     if (st.room.boss) {
       if (st.bossDead && st.enemies.length === 0) endRun(st, true);
     } else if (st.waveManager.done) {
       if (!st.roomCleared) {
         st.roomCleared = true;
+        st.players.forEach(function (rp) {   // medics patch everyone between segments
+          if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
+        });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
       }
       checkExits(st);
@@ -409,6 +540,15 @@
     var grad = g.createRadialGradient(DA.W / 2, DA.H / 2, DA.H * 0.42, DA.W / 2, DA.H / 2, DA.H * 0.95);
     grad.addColorStop(0, 'rgba(0,0,0,0)');
     grad.addColorStop(1, 'rgba(0,0,0,0.4)');
+    g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
+    return c;
+  })();
+  var bloodVignette = (function () {
+    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    var g = c.getContext('2d');
+    var grad = g.createRadialGradient(DA.W / 2, DA.H / 2, DA.H * 0.30, DA.W / 2, DA.H / 2, DA.H * 0.85);
+    grad.addColorStop(0, 'rgba(120, 8, 18, 0)');
+    grad.addColorStop(1, 'rgba(120, 8, 18, 0.85)');
     g.fillStyle = grad; g.fillRect(0, 0, DA.W, DA.H);
     return c;
   })();
@@ -558,6 +698,23 @@
     }
   }
 
+  function drawDeadPlayer(ctx, p, st) {
+    var gone = DA.clamp((DA.DEATH_T - (st.deathT == null ? 0 : st.deathT)) / DA.DEATH_T, 0, 1);
+    ctx.fillStyle = 'rgba(110, 20, 30, 0.7)';               // the pool
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y + 4, 10 + gone * 30, 6 + gone * 16, 0, 0, 7);
+    ctx.fill();
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(2.2);
+    ctx.scale(1, 0.55);                                     // face-down
+    ctx.fillStyle = '#c9c9c0';
+    ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#333';                                 // the dropped gun
+    ctx.fillRect(p.x + 14, p.y + 6, 11, 5);
+  }
   function drawHeart(ctx, x, y, size, filled) {
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, size, size, 6);
@@ -621,6 +778,21 @@
     ctx.font = 'bold 18px monospace';
     ctx.fillStyle = gun.color;
     ctx.fillText(gun.label + (st.player.gunT > 0 ? ' ' + Math.ceil(st.player.gunT) + 's' : ''), 16, 60);
+    var buddy = st.players[1];
+    if (buddy) {
+      ctx.font = 'bold 12px monospace';
+      ctx.fillStyle = '#a8c8d8';
+      ctx.fillText('CAM-BOT', 16, 84);
+      if (buddy.downed) {
+        if (Math.floor(performance.now() / 300) % 2 === 0) {
+          ctx.fillStyle = '#d43a4b';
+          ctx.font = 'bold 14px monospace';
+          ctx.fillText('DOWN! GO HELP', 92, 84);
+        }
+      } else {
+        for (var bh = 0; bh < DA.MAX_HEARTS; bh++) drawHeart(ctx, 92 + bh * 21, 72, 14, bh < buddy.hearts);
+      }
+    }
     ctx.textAlign = 'right';
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#7ee081';
@@ -630,6 +802,14 @@
       ctx.font = 'bold ' + Math.round(24 * pulse) + 'px monospace';
       ctx.fillStyle = '#e8d44d';
       ctx.fillText('x' + st.combo, DA.W - 20, 62);
+    }
+    var chain = st.comboKills || 0;                 // chain progress toward the next step
+    if (st.combo > 1 || chain > 0) {
+      var frac = DA.clamp(chain / (DA.COMBO_STEP || 6), 0, 1);
+      ctx.fillStyle = 'rgba(232, 212, 77, 0.22)';
+      ctx.fillRect(DA.W - 84, 70, 64, 5);
+      ctx.fillStyle = '#e8d44d';
+      ctx.fillRect(DA.W - 20 - 64 * frac, 70, 64 * frac, 5);
     }
     var puLines = DA.powerupHudLines(st.player);
     ctx.font = 'bold 17px monospace';
@@ -643,6 +823,12 @@
 
   function drawWorld(ctx, st) {
     ctx.save();
+    if (st.mode === 'dying') {          // slow push-in on the fallen contestant
+      var zk = 1 + 0.35 * Math.min(1, (DA.DEATH_T - st.deathT) / 1.2);
+      ctx.translate(st.player.x, st.player.y);
+      ctx.scale(zk, zk);
+      ctx.translate(-st.player.x, -st.player.y);
+    }
     if (DA.fx.shake > 0 && !paused) {
       ctx.translate(DA.rand(-DA.fx.shake, DA.fx.shake), DA.rand(-DA.fx.shake, DA.fx.shake));
     }
@@ -652,7 +838,11 @@
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);
     DA.drawEnemies(ctx, st.enemies);
-    DA.drawPlayer(ctx, st.player);
+    for (var pw = 0; pw < st.players.length; pw++) {
+      if (st.players[pw].dead) drawDeadPlayer(ctx, st.players[pw], st);
+      else DA.drawPlayer(ctx, st.players[pw]);
+    }
+    if (DA.broadcast) DA.broadcast.drawWorldFx(ctx, st);
     DA.drawFxOver(ctx);
     ctx.restore();
   }
@@ -687,6 +877,24 @@
       { text: 'favorite gun: ' + favoriteGun(st) + '  ·  ' + mins + 'm ' + secs + 's on air',
         font: '20px monospace', color: '#8888a0', y: y + 32 }
     ];
+  }
+
+  function topFiveLines(st, y) {
+    var runs = [];
+    try { runs = JSON.parse(load('deadset_runs') || '[]'); } catch (e) { runs = []; }
+    if (!runs.length) return [];
+    var top = runs.slice().sort(function (a, b) { return b.s - a.s; }).slice(0, 5);
+    var lines = [{ text: 'TOP 5 BROADCASTS', font: 'bold 17px monospace', color: '#8888a0', y: y }];
+    for (var i = 0; i < top.length; i++) {
+      var r = top[i];
+      var mine = st.runStamp && r.d === st.runStamp;
+      var when = new Date(r.d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      lines.push({ text: (i + 1) + '.  $' + r.s.toLocaleString('en-US') + '  ·  ' + r.m + '  ·  ' + when +
+                         (mine ? '  ◂ THIS RUN' : ''),
+                   font: (mine ? 'bold ' : '') + '18px monospace',
+                   color: mine ? '#e8d44d' : '#8888a0', y: y + 26 + i * 24 });
+    }
+    return lines;
   }
 
   function render(ctx) {
@@ -744,9 +952,11 @@
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
                              font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · I story', font: '15px monospace', color: '#8888a0', y: 572 });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: 572 });
+    lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
+                 font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 });
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
-        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 605 });
+        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 652 });
       }
       drawCenteredScreen(ctx, lines);
       drawAttract(ctx);
@@ -759,8 +969,19 @@
 
     drawWorld(ctx, st);
     drawTouchUI(ctx);
+    if (DA.broadcast) DA.broadcast.drawFrame(ctx, st);
     drawScreenFx(ctx);
     drawHud(ctx, st);
+    if (DA.broadcast) DA.broadcast.drawGlitch(ctx);
+    if (st.mode === 'dying') {
+      ctx.globalAlpha = Math.min(1, (DA.DEATH_T - st.deathT) / 0.9);
+      ctx.drawImage(bloodVignette, 0, 0);                   // blood at the edges
+      ctx.globalAlpha = 1;
+      if (st.deathT < 1.5) {                                // slow fade to black
+        ctx.fillStyle = 'rgba(0, 0, 0, ' + Math.min(1, (1.5 - st.deathT) / 1.5).toFixed(3) + ')';
+        ctx.fillRect(0, 0, DA.W, DA.H);
+      }
+    }
     if (st.mode === 'playing' && st.roomCleared && st.room.map) drawMap(ctx, st);
     if (showDebug) drawDebug(ctx);
 
@@ -776,30 +997,34 @@
 
     if (st.mode === 'gameover') {
       var go = [
-        { text: 'CUT TO COMMERCIAL', font: 'bold 72px monospace', color: '#d43a4b', y: 250 },
+        { text: 'CUT TO COMMERCIAL', font: 'bold 64px monospace', color: '#d43a4b', y: 218 },
         { text: 'You leave with $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
-          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 310 }
-      ].concat(statsLines(st, 370));
-      go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 30px monospace', color: '#7ee081', y: 480 });
-      if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 516 });
+          font: '26px monospace', color: st.newBest ? '#e8d44d' : '#f2f2e9', y: 268 }
+      ].concat(statsLines(st, 316)).concat(topFiveLines(st, 396));
+      go.push({ text: 'PRESS FIRE TO RESTART', font: 'bold 28px monospace', color: '#7ee081', y: 566 });
+      if (endlessUnlocked()) go.push({ text: 'E (or 🎮 Y) for Endless Arena', font: '19px monospace', color: '#5bc8d6', y: 598 });
       drawCenteredScreen(ctx, go);
+      if (st.goFade > 0) {                                  // fade in from the death scene
+        ctx.fillStyle = 'rgba(0, 0, 0, ' + Math.min(1, st.goFade / 0.7).toFixed(3) + ')';
+        ctx.fillRect(0, 0, DA.W, DA.H);
+      }
     } else if (st.mode === 'winner') {
       var isFinale = st.room.ep === 2;
       var w = [
         { text: isFinale ? 'SEASON FINALE!' : "THAT'S A WRAP!",
-          font: 'bold 84px monospace', color: '#e8d44d', y: 240 },
+          font: 'bold 84px monospace', color: '#e8d44d', y: 196 },
         { text: isFinale ? 'The Executive is cancelled. The network is yours.' :
                            'Episode 1 survived — The Producer is done for.',
-          font: '24px monospace', color: '#f2f2e9', y: 292 },
+          font: '24px monospace', color: '#f2f2e9', y: 246 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
-          font: 'bold 28px monospace', color: '#7ee081', y: 336 }
-      ].concat(statsLines(st, 392));
+          font: 'bold 28px monospace', color: '#7ee081', y: 288 }
+      ].concat(statsLines(st, 334)).concat(topFiveLines(st, 404));
       w.push({ text: isFinale ? 'Thanks for watching SLASH TV — stay tuned for Season 2' :
                                 'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E',
-               font: 'bold 22px monospace', color: '#5bc8d6', y: 470 });
-      w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 510 });
+               font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
+      w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 598 });
       drawCenteredScreen(ctx, w);
     }
   }

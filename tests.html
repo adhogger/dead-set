@@ -264,20 +264,58 @@ test('no wave ever uses all 4 doors at once', function () {
     }
   }
 });
-test('every combat room offers at least 2 exit choices', function () {
-  for (var id in DA.ROOMS) {
-    var room = DA.ROOMS[id];
-    if (room.boss || room.endless) continue;
-    var n = Object.keys(room.exits).length;
-    assert(n >= 2, id + ' has only ' + n + ' exit(s)');
+test('the studio map is a forward grid: adjacent-cell doors, one boss sink, equal routes', function () {
+  var DIR = { E: [1, 0], S: [0, 1] };
+  [1, 2].forEach(function (ep) {
+    var rooms = {}, id, room;
+    for (id in DA.ROOMS) {
+      room = DA.ROOMS[id];
+      if (room.map && (room.ep || 1) === ep) rooms[id] = room;
+    }
+    var sinks = [];
+    for (id in rooms) {
+      room = rooms[id];
+      var n = 0;
+      for (var d in room.exits) {
+        n++;
+        assert(DIR[d], id + ' exit ' + d + ' is not forward (E/S only)');
+        var to = DA.ROOMS[room.exits[d]];
+        assert(to && to.map.x === room.map.x + DIR[d][0] &&
+                     to.map.y === room.map.y + DIR[d][1],
+               id + ' exit ' + d + ' must land on the adjacent grid cell');
+      }
+      if (n === 0) sinks.push(id);
+    }
+    assert(sinks.length === 1 && rooms[sinks[0]].boss,
+           'ep' + ep + ' must have exactly one dead end: the boss');
+    var lens = [];
+    (function walk(rid, depth) {
+      var any = false;
+      for (var dd in rooms[rid].exits) { any = true; walk(rooms[rid].exits[dd], depth + 1); }
+      if (!any) lens.push(depth + 1);
+    })(ep === 2 ? 'writers' : DA.START_ROOM, 0);
+    for (var i = 0; i < lens.length; i++) {
+      assert(lens[i] === lens[0], 'ep' + ep + ' routes differ in length: ' + lens.join(','));
+    }
+  });
+});
+test('seeded rng is deterministic; different seeds differ', function () {
+  var a = DA.makeRng(1234), b = DA.makeRng(1234), c = DA.makeRng(99);
+  var sa = '', sc = '';
+  for (var i = 0; i < 5; i++) {
+    var va = a();
+    assert(va === b(), 'same seed must give the same sequence');
+    assert(va >= 0 && va < 1, 'values stay in [0,1)');
+    sa += va; sc += c();
   }
+  assert(sa !== sc, 'different seeds must diverge');
 });
 test('boost timers freeze when no combat is active', function () {
   var p = DA.makePlayer();
   p.gun = 'smg'; p.gunT = 10; p.bootsT = 10;
-  DA.updatePlayer(p, 1, false);   // 1 simulated second, combat inactive
+  DA.updatePlayer(p, null, 1, false);   // 1 simulated second, combat inactive
   assert(p.gunT === 10 && p.bootsT === 10, 'timers must not tick between fights');
-  DA.updatePlayer(p, 1, true);
+  DA.updatePlayer(p, null, 1, true);
   assert(p.gunT < 10 && p.bootsT < 10, 'timers tick during combat');
 });
 test('endless waves scale up but keep the door cap and sane spawn rates', function () {
@@ -427,7 +465,7 @@ test('railgun bullets pierce and deal triple damage', function () {
 test('gun expires back to pistol after its combat time', function () {
   var p = DA.makePlayer();
   DA.applyPowerup(p, 'gun_minigun');
-  DA.updatePlayer(p, 31, true);
+  DA.updatePlayer(p, null, 31, true);
   assert(p.gun === 'pistol' && p.gunT <= 0, 'crate should expire to pistol');
 });
 test('kills leave a deflating corpse that expires', function () {
@@ -452,26 +490,28 @@ test('announcements show one at a time from a queue', function () {
 });
 
 // combo tests
-test('combo needs 8 chained kills per step and resets on timeout or hit', function () {
+test('combo steps every 6 chained kills; timeouts reset, hits halve', function () {
   var st = { combo: 1, comboTimer: 0 };
-  for (var i = 0; i < 7; i++) DA.bumpCombo(st);
-  assert(st.combo === 1, '7 kills is not enough for a step');
+  for (var i = 0; i < 5; i++) DA.bumpCombo(st);
+  assert(st.combo === 1, '5 kills is not enough for a step');
   DA.bumpCombo(st);
-  assert(st.combo === 2, '8th kill earns x2');
-  for (i = 0; i < 16; i++) DA.bumpCombo(st);
-  assert(st.combo === 4, '16 more kills earn two more steps');
+  assert(st.combo === 2, '6th kill earns x2');
+  for (i = 0; i < 12; i++) DA.bumpCombo(st);
+  assert(st.combo === 4, '12 more kills earn two more steps');
   DA.updateCombo(st, 5);            // chain goes cold
   assert(st.combo === 1, 'timeout resets');
-  for (i = 0; i < 8; i++) DA.bumpCombo(st);
-  assert(st.combo === 2);
-  DA.resetCombo(st);                // player got hit
-  assert(st.combo === 1 && st.comboKills === 0, 'a hit resets everything');
+  for (i = 0; i < 18; i++) DA.bumpCombo(st);
+  assert(st.combo === 4);
+  DA.comboHit(st);                  // player got hit
+  assert(st.combo === 2 && st.comboKills === 0, 'a hit halves the multiplier');
+  DA.comboHit(st);
+  assert(st.combo === 1, 'and halves again down to x1');
 });
-test('taking a hit in combat resets the multiplier', function () {
+test('taking a hit in combat halves the multiplier', function () {
   var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 6, comboKills: 3, comboTimer: 2 };
   st.enemies.push(DA.makeEnemy('shambler', st.player.x, st.player.y));
   DA.resolveCombat(st);
-  assert(st.player.hearts === 2 && st.combo === 1, 'hit should cost a heart and the combo');
+  assert(st.player.hearts === 2 && st.combo === 3, 'hit should cost a heart and half the combo');
 });
 test('shield blocks zombie contact and boss bullets', function () {
   var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };

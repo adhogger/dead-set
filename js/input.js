@@ -80,7 +80,7 @@
   };
 
   var sticks = { move: null, aim: null };   // { id, ox, oy, cx, cy }
-  var pauseTapped = false;
+  var pauseTapped = false, botTapped = false;
   function canvasPt(t) { return DA.screenToCanvas(t.clientX, t.clientY, window.innerWidth, window.innerHeight); }
 
   window.addEventListener('touchstart', function (e) {
@@ -88,7 +88,8 @@
     for (var i = 0; i < e.changedTouches.length; i++) {
       var t = e.changedTouches[i];
       var p = canvasPt(t);
-      if (DA.touchUIBlock && DA.touchUIBlock(p.x, p.y)) { pauseTapped = true; continue; }
+      var zone = DA.touchUIBlock && DA.touchUIBlock(p.x, p.y);
+      if (zone) { if (zone === 'bot') botTapped = true; else pauseTapped = true; continue; }
       var side = p.x < DA.W / 2 ? 'move' : 'aim';
       if (!sticks[side]) sticks[side] = { id: t.identifier, ox: p.x, oy: p.y, cx: p.x, cy: p.y };
     }
@@ -172,6 +173,7 @@
     touchActive: function () { return device === 'touch'; },
     touchSticks: function () { return sticks; },
     consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
+    consumeBotTap: function () { var v = botTapped; botTapped = false; return v; },
     // true while any "start the game" input is held: fire, click, tap, Enter or Space
     startHeld: function () {
       if (keys.Enter || keys.Space) return true;
