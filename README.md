@@ -1,8 +1,8 @@
-# DEAD SET 🧟📺
+# SLASH TV: THE FINAL BROADCAST 🧟📺
 
-*New America's #1 post-apocalyptic game show!*
+*The most-watched — and most-banned — show on Earth.*
 
-(The project folder is still called `dead-air` — the show got renamed mid-season.)
+(The project folder is `dead-air` and the repo is `dead-set` — the show has been renamed twice mid-season. Such is television.)
 
 A browser twin-stick shooter in the spirit of Smash TV. You're a contestant fighting
 through the studios of a zombie-infested TV network — 8 connected rooms with exit-door

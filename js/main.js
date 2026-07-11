@@ -66,6 +66,44 @@
     return st;
   }
 
+  // The legend of SLASH TV, told before your first-ever run. FIRE advances.
+  var INTRO = [
+    ['For twelve years, SLASH TV was the most-watched',
+     'entertainment program on the planet.', '',
+     'It began as a late-night survival game — crude monsters,',
+     'fake-looking weapons, real prize money.',
+     'Most contestants made it out alive.', '',
+     { t: 'Then the ratings exploded.', gold: true }],
+    ['Every season had to be bigger than the last.',
+     'Deadlier creatures. Crueler traps. Higher stakes.', '',
+     'The safety protocols vanished quietly. Then the',
+     'emergency interventions. Then the rule that',
+     'contestants had to consent at all.', '',
+     'The audience stopped asking who would win.',
+     { t: 'They tuned in to watch people die.', gold: true }],
+    ['The leaked footage. The lawsuits by the hundreds.',
+     'The "special effects" that turned out to be real.', '',
+     "At midnight tonight, the network's license",
+     'is revoked. Permanently.', '',
+     'The executives had a choice: end the show quietly,',
+     'or make sure no one ever forgot it.', '',
+     { t: 'They chose spectacle.', gold: true }],
+    ["Tonight's episode has one contestant.",
+     { t: 'You.', gold: true }, '',
+     'Every monster the production team ever built is loose.',
+     'The AI director has been told to ignore casualty limits.',
+     'The budget went on ammunition and practical effects.',
+     'The prize pool is a number nobody expects to pay.', '',
+     'Billions are watching — not for a winner.',
+     { t: 'For history.', gold: true }],
+    ['The host steps into the spotlight one last time,',
+     'smiling the smile that made them famous.', '',
+     '"We\'ve turned the monsters up to ten..."',
+     '"...and the violence up to eleven."', '',
+     '10... 9... 8...', '',
+     { t: 'WELCOME TO THE FINAL BROADCAST', big: true }]
+  ];
+
   DA.state = { mode: 'title' };
   var startWasHeld = false;   // require a release between screens
   var endlessWasHeld = false;
@@ -106,6 +144,7 @@
       try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
       DA.announce(DA.fx.shakeOn ? 'SHAKE ON' : 'SHAKE OFF');
     }
+    if (e.code === 'KeyI' && DA.state.mode === 'title') DA.state = { mode: 'intro', page: 0 };
   });
 
   // attract mode: a parade of silhouettes shambling across the title screen
@@ -211,9 +250,24 @@
     var st = DA.state;
     var startHeld = DA.input.startHeld();
 
+    if (st.mode === 'intro') {
+      if (startHeld && !startWasHeld) {
+        st.page++;
+        if (st.page >= INTRO.length) {
+          store('slashtv_intro', '1');
+          DA.state = newGame();
+        }
+      }
+      startWasHeld = startHeld;
+      DA.updateFx(dt);
+      return;
+    }
     if (st.mode !== 'playing') {
       paused = false;
-      if (startHeld && !startWasHeld) DA.state = newGame();
+      if (startHeld && !startWasHeld) {
+        DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
+                   { mode: 'intro', page: 0 } : newGame();
+      }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
       var ep2Held = ep2KeyHeld || DA.input.padButton(2);
@@ -310,6 +364,91 @@
     return c;
   })();
   var scanPattern = null;
+
+  // per-room set dressing: deterministic decals pre-rendered once per room
+  var decorCache = {};
+  function decorCanvas(st) {
+    var id = (st && st.roomId) || 'title';
+    if (decorCache[id]) return decorCache[id];
+    var A = DA.ARENA, w = A.x1 - A.x0, h = A.y1 - A.y0;
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var g = c.getContext('2d');
+    var type = (st && st.room && st.room.decor) || 'stage';
+    g.strokeStyle = 'rgba(255,255,255,0.055)';
+    g.fillStyle = 'rgba(255,255,255,0.045)';
+    g.lineWidth = 3;
+    var i, x, y;
+    function cross(cx, cy, s) {
+      g.beginPath();
+      g.moveTo(cx - s, cy - s); g.lineTo(cx + s, cy + s);
+      g.moveTo(cx + s, cy - s); g.lineTo(cx - s, cy + s);
+      g.stroke();
+    }
+    if (type === 'stage') {                     // spike tape + dolly track
+      for (i = 0; i < 6; i++) cross(120 + i * 195, (i % 2) ? 130 : h - 140, 16);
+      g.beginPath(); g.moveTo(60, h / 2 - 14); g.lineTo(w - 60, h / 2 - 14);
+      g.moveTo(60, h / 2 + 14); g.lineTo(w - 60, h / 2 + 14); g.stroke();
+    } else if (type === 'crates') {             // stacked prop crates
+      for (i = 0; i < 9; i++) {
+        x = 90 + (i * 233) % (w - 180); y = 80 + (i * 157) % (h - 160);
+        g.strokeRect(x, y, 54, 54); g.strokeRect(x + 8, y + 8, 38, 38);
+      }
+    } else if (type === 'tables') {             // round tables, four chairs
+      for (i = 0; i < 7; i++) {
+        x = 140 + (i * 271) % (w - 280); y = 110 + (i * 193) % (h - 220);
+        g.beginPath(); g.arc(x, y, 34, 0, 7); g.stroke();
+        [[46, 0], [-46, 0], [0, 46], [0, -46]].forEach(function (o) {
+          g.beginPath(); g.arc(x + o[0], y + o[1], 8, 0, 7); g.stroke();
+        });
+      }
+    } else if (type === 'monitors') {           // a monitor wall + floor cables
+      for (i = 0; i < 14; i++) g.strokeRect(40 + i * 80, 18, 62, 40);
+      g.beginPath(); g.moveTo(60, 80); g.bezierCurveTo(w / 3, h / 2, w / 2, h / 3, w - 80, h - 60); g.stroke();
+    } else if (type === 'racks') {              // wardrobe rails with hangers
+      for (i = 0; i < 4; i++) {
+        y = 110 + i * 130;
+        g.beginPath(); g.moveTo(120, y); g.lineTo(w - 120, y); g.stroke();
+        for (x = 160; x < w - 140; x += 70) { g.beginPath(); g.arc(x, y + 12, 9, 0, 7); g.stroke(); }
+      }
+    } else if (type === 'papers') {             // scattered scripts
+      for (i = 0; i < 26; i++) {
+        x = 60 + (i * 199) % (w - 120); y = 50 + (i * 137) % (h - 100);
+        g.save(); g.translate(x, y); g.rotate((i * 0.83) % 6.28);
+        g.strokeRect(-13, -17, 26, 34); g.restore();
+      }
+    } else if (type === 'desks') {              // edit bays in rows
+      for (i = 0; i < 8; i++) {
+        x = 110 + (i % 4) * 280; y = 120 + Math.floor(i / 4) * 300;
+        g.strokeRect(x, y, 130, 60); g.strokeRect(x + 40, y - 26, 50, 26);
+      }
+    } else if (type === 'mirrors') {            // makeup bulbs along both walls
+      for (i = 0; i < 16; i++) {
+        g.beginPath(); g.arc(70 + i * 72, 26, 9, 0, 7); g.stroke();
+        g.beginPath(); g.arc(70 + i * 72, h - 26, 9, 0, 7); g.stroke();
+      }
+    } else if (type === 'servers') {            // racks + status LEDs
+      for (i = 0; i < 8; i++) {
+        x = 90 + i * 140;
+        g.strokeRect(x, 30, 60, 110); g.strokeRect(x, h - 140, 60, 110);
+        g.fillStyle = i % 2 ? 'rgba(126,224,129,0.35)' : 'rgba(212,58,75,0.35)';
+        g.fillRect(x + 8, 42, 8, 8); g.fillRect(x + 8, h - 128, 8, 8);
+        g.fillStyle = 'rgba(255,255,255,0.045)';
+      }
+    } else if (type === 'lounge') {             // green room sofas + rug
+      g.strokeRect(w / 2 - 170, h / 2 - 110, 340, 220);
+      [[w / 2 - 120, h / 2 - 170], [w / 2 + 40, h / 2 + 140]].forEach(function (s) {
+        g.strokeRect(s[0], s[1], 130, 46); g.strokeRect(s[0] + 8, s[1] + 8, 114, 30);
+      });
+    } else if (type === 'bossfloor') {          // the star's mark
+      g.save(); g.translate(w / 2, h / 2);
+      for (i = 0; i < 5; i++) { g.rotate(6.28 / 5); g.beginPath(); g.moveTo(0, -58); g.lineTo(0, -110); g.stroke(); }
+      g.restore();
+      g.beginPath(); g.arc(w / 2, h / 2, 58, 0, 7); g.stroke();
+      for (i = 0; i < 6; i++) cross(120 + i * 195, (i % 2) ? 100 : h - 110, 14);
+    }
+    decorCache[id] = c;
+    return c;
+  }
   function drawScreenFx(ctx) {
     ctx.drawImage(vignette, 0, 0);
     if (!scanPattern) scanPattern = ctx.createPattern(scanlines, 'repeat');
@@ -323,6 +462,7 @@
     ctx.fillRect(0, 0, DA.W, DA.H);
     ctx.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
     ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+    ctx.drawImage(decorCanvas(st), A.x0, A.y0);        // this room's set dressing
     ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';     // game-show floor rings
     ctx.lineWidth = 3;
     for (var r = 80; r <= 320; r += 80) {
@@ -496,6 +636,34 @@
 
   function render(ctx) {
     var st = DA.state;
+    if (st.mode === 'intro') {
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      var page = INTRO[st.page] || [];
+      ctx.textAlign = 'center';
+      var yy = 368 - page.length * 19;
+      for (var li = 0; li < page.length; li++) {
+        var line = page[li];
+        // strings inherit a legacy String.prototype.big() — check the type!
+        var isObj = typeof line === 'object';
+        var big = isObj && line.big, gold = isObj && line.gold;
+        ctx.font = big ? 'bold 44px monospace' : '23px monospace';
+        ctx.fillStyle = big ? '#d43a4b' : (gold ? '#e8d44d' : '#c9c9d4');
+        ctx.fillText(isObj ? line.t : line, DA.W / 2, yy);
+        yy += big ? 64 : 38;
+      }
+      for (var pd = 0; pd < INTRO.length; pd++) {
+        ctx.fillStyle = pd === st.page ? '#e8d44d' : '#3a3a48';
+        ctx.beginPath();
+        ctx.arc(DA.W / 2 - (INTRO.length - 1) * 12 + pd * 24, DA.H - 82, 5, 0, 7);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#7ee081';
+      ctx.font = 'bold 20px monospace';
+      ctx.fillText('FIRE ▸', DA.W / 2, DA.H - 44);
+      drawScreenFx(ctx);
+      return;
+    }
     if (st.mode === 'title') {
       drawArena(ctx, {});
       var hint = DA.input.touchActive() ?
@@ -504,9 +672,10 @@
           '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
           'WASD moves — mouse aims — click fires (or plug in a gamepad)');
       var lines = [
-        { text: 'DEAD SET', font: 'bold 96px monospace', color: '#e8d44d', y: 250 },
-        { text: "New America's #1 post-apocalyptic game show!", font: '24px monospace', color: '#f2f2e9', y: 300 },
-        { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 386 }
+        { text: 'SLASH TV', font: 'bold 96px monospace', color: '#e8d44d', y: 240 },
+        { text: 'THE FINAL BROADCAST', font: 'bold 32px monospace', color: '#d43a4b', y: 290 },
+        { text: 'The most-watched — and most-banned — show on Earth.', font: '21px monospace', color: '#f2f2e9', y: 328 },
+        { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 }
       ];
       if (ep2Unlocked()) {
         lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
@@ -520,7 +689,7 @@
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
                              font: 'bold 20px monospace', color: '#e8d44d', y: 502 });
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 545 });
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake', font: '15px monospace', color: '#8888a0', y: 572 });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · I story', font: '15px monospace', color: '#8888a0', y: 572 });
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
         lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 605 });
       }
@@ -572,7 +741,7 @@
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 336 }
       ].concat(statsLines(st, 392));
-      w.push({ text: isFinale ? 'Thanks for watching DEAD SET — stay tuned for Season 2' :
+      w.push({ text: isFinale ? 'Thanks for watching SLASH TV — stay tuned for Season 2' :
                                 'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E',
                font: 'bold 22px monospace', color: '#5bc8d6', y: 470 });
       w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 510 });

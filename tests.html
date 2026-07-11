@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Dead Set tests</title>
+<html><head><meta charset="utf-8"><title>Slash TV tests</title>
 <style>body{font:16px monospace;background:#111;color:#eee;padding:20px}
 .pass{color:#5f5}.fail{color:#f55}</style></head><body>
-<h1>Dead Set tests</h1><div id="out"></div>
+<h1>Slash TV tests</h1><div id="out"></div>
 <script src="js/util.js"></script>
 <script src="js/input.js"></script>
 <script src="js/effects.js"></script>
@@ -71,6 +71,20 @@ test('pickAimAxes finds the real right-stick vertical axis', function () {
   r = DA.pickAimAxes([99,99,99,99,99,99,99,99],
                      [-1,-1,-1,0,0,0,0,-1], [1,1,1,0,0,0,0,1]);
   assert(r.y === 7, 'any reported axis can be the vertical, got ' + r.y);
+  // Firefox-style layout: right stick on axes 3/4, axis 2 dead → both detected
+  r = DA.pickAimAxes([99,99,99,99,99], [-1,-1,0,-1,-1], [1,1,0,1,1]);
+  assert(r.x === 3 && r.y === 4 && r.proven === true,
+         'Firefox 3/4 layout: got x=' + r.x + ' y=' + r.y);
+});
+test('zombies steer with momentum instead of pivoting instantly', function () {
+  assert(approx(DA.turnToward(0, Math.PI / 2, 0.1), 0.1), 'turn is clamped');
+  assert(approx(DA.turnToward(0, 0.05, 0.1), 0.05), 'small turns complete');
+  assert(DA.turnToward(3, -3, 0.1) > 3, 'takes the short way around the circle');
+  var e = DA.makeEnemy('shambler', 400, 360);
+  e.flank = 0; e.heading = Math.PI;               // walking dead-away from the player
+  DA.updateEnemies([e], { x: 900, y: 360, r: 12 }, 0.1);
+  var off = Math.abs(DA.turnToward(e.heading, 0, 0) - 0);
+  assert(Math.abs(e.heading - Math.PI) < 0.5, 'one tick cannot reverse a shambler');
 });
 test('right-stick axis stays locked even when held deflected for ages', function () {
   var axes = [0,0,0,0,0,0];

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dev server for Dead Set: like `python3 -m http.server` but sends no-cache
+"""Dev server for Slash TV: like `python3 -m http.server` but sends no-cache
 headers so the browser always fetches fresh JS after an edit.
 Usage: python3 devserver.py [port] [directory]"""
 import functools

@@ -18,10 +18,21 @@
     for (var i = 0; i < DA.DOORS.length; i++) if (DA.DOORS[i].dir === dir) return DA.DOORS[i];
     return null;
   };
+  // How fast each type can change direction (radians/second). Low = staggers
+  // past a dodging player, Smash TV style, instead of pivoting on a dime.
+  var TURN = { shambler: 1.7, sprinter: 3.2, swarmer: 3.8, brute: 1.1, boomer: 2.0, stalker: 2.6 };
+  // Shortest-way angle steering, clamped to a max change. Pure and testable.
+  DA.turnToward = function (heading, target, maxDelta) {
+    var d = target - heading;
+    while (d > Math.PI) d -= 6.28318;
+    while (d < -Math.PI) d += 6.28318;
+    return heading + DA.clamp(d, -maxDelta, maxDelta);
+  };
   DA.makeEnemy = function (type, x, y, speed) {
     var t = TYPES[type];
     return { type: type, x: x, y: y, r: t.r, speed: speed || t.speed, hp: t.hp,
-             score: t.score, color: t.color, wobble: Math.random() * 6.28 };
+             score: t.score, color: t.color, wobble: Math.random() * 6.28,
+             heading: null, flank: DA.rand(-0.4, 0.4) };
   };
   // doors: optional array of door objects to spawn from (staggered-door waves)
   // Fresh spawns get a short "emerging" grace: they can be shot but can't hurt
@@ -44,10 +55,19 @@
         e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
         if (DA.stalkerFaint(e)) sp *= 1.5;
       }
-      var v = DA.norm(player.x - e.x, player.y - e.y);
       e.wobble += dt * 5;
-      e.x += (v.x + Math.cos(e.wobble) * 0.25) * sp * dt;
-      e.y += (v.y + Math.sin(e.wobble) * 0.25) * sp * dt;
+      // each zombie wants the player PLUS its own flanking angle, which fades
+      // out as it closes in — so the horde converges from spread directions
+      var dist = Math.sqrt(DA.dist2(e.x, e.y, player.x, player.y));
+      var want = Math.atan2(player.y - e.y, player.x - e.x) +
+                 e.flank * DA.clamp(dist / 420, 0, 1);
+      if (e.heading == null) e.heading = want;
+      e.heading = DA.turnToward(e.heading, want, (TURN[e.type] || 2) * dt);
+      if (e.type === 'shambler' || e.type === 'boomer') {   // lurching gait
+        sp *= 0.55 + 0.75 * Math.max(0, Math.sin(e.wobble * 1.4));
+      }
+      e.x += Math.cos(e.heading) * sp * dt;
+      e.y += Math.sin(e.heading) * sp * dt;
       DA.clampToArena(e);
     }
     // separation: overlapping zombies push each other apart so hordes stay readable

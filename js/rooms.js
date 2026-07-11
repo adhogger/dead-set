@@ -6,7 +6,7 @@
   DA.ROOMS = {
     studio1: {
       map: { x: 0, y: 0 },
-      name: 'STUDIO 1', floor: '#1c1c26',
+      name: 'STUDIO 1', floor: '#1c1c26', decor: 'stage',
       exits: { E: 'greenroom', S: 'makeup' },
       waves: [
         { doors: 1, groups: [{ type: 'shambler', count: 120,  interval: 0.08 }] },
@@ -15,7 +15,7 @@
     },
     greenroom: {
       map: { x: 1, y: 0 },
-      name: 'THE GREEN ROOM', floor: '#1a2119',
+      name: 'THE GREEN ROOM', floor: '#1a2119', decor: 'lounge',
       exits: { E: 'props', S: 'cafeteria' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 120,  interval: 0.08 },
@@ -26,7 +26,7 @@
     },
     makeup: {
       map: { x: 0, y: 1 },
-      name: 'MAKEUP', floor: '#221a20',
+      name: 'MAKEUP', floor: '#221a20', decor: 'mirrors',
       exits: { E: 'cafeteria', S: 'props' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 135,  interval: 0.08 },
@@ -37,7 +37,7 @@
     },
     props: {
       map: { x: 2, y: 0 },
-      name: 'PROP DEPARTMENT', floor: '#20201a',
+      name: 'PROP DEPARTMENT', floor: '#20201a', decor: 'crates',
       exits: { S: 'controlroom', E: 'editing' },
       waves: [
         { doors: 3, groups: [{ type: 'swarmer',  count: 60, interval: 0.25 },
@@ -49,7 +49,7 @@
     },
     cafeteria: {
       map: { x: 1, y: 1 },
-      name: 'STAFF CAFETERIA', floor: '#1a1f22',
+      name: 'STAFF CAFETERIA', floor: '#1a1f22', decor: 'tables',
       exits: { E: 'controlroom', N: 'editing' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
@@ -62,7 +62,7 @@
     },
     editing: {
       map: { x: 3, y: 0 },
-      name: 'EDITING BAY', floor: '#1d1a22',
+      name: 'EDITING BAY', floor: '#1d1a22', decor: 'desks',
       exits: { E: 'stage', S: 'controlroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 0.07 },
@@ -77,7 +77,7 @@
     },
     controlroom: {
       map: { x: 2, y: 1 },
-      name: 'CONTROL ROOM', floor: '#221d1a',
+      name: 'CONTROL ROOM', floor: '#221d1a', decor: 'monitors',
       exits: { E: 'stage', N: 'editing' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 0.08 },
@@ -92,7 +92,7 @@
     },
     stage: {
       map: { x: 4, y: 0.5 },
-      name: 'SOUND STAGE 5', floor: '#241a1a',
+      name: 'SOUND STAGE 5', floor: '#241a1a', decor: 'bossfloor',
       exits: {},
       boss: 'producer',
       waves: []
@@ -101,7 +101,7 @@
     // ---- EPISODE 2: SWEEPS WEEK (unlocked by beating Episode 1) ----
     writers: {
       ep: 2, map: { x: 0, y: 0 },
-      name: 'WRITERS ROOM', floor: '#1e1c24',
+      name: 'WRITERS ROOM', floor: '#1e1c24', decor: 'papers',
       exits: { E: 'wardrobe', S: 'catering' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 140, interval: 0.07 }] },
@@ -111,7 +111,7 @@
     },
     wardrobe: {
       ep: 2, map: { x: 1, y: 0 },
-      name: 'WARDROBE', floor: '#241e1c',
+      name: 'WARDROBE', floor: '#241e1c', decor: 'racks',
       exits: { E: 'backlot', S: 'gallery' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 130, interval: 0.07 },
@@ -124,7 +124,7 @@
     },
     catering: {
       ep: 2, map: { x: 0, y: 1 },
-      name: 'CRAFT SERVICES', floor: '#1c2420',
+      name: 'CRAFT SERVICES', floor: '#1c2420', decor: 'tables',
       exits: { E: 'gallery', N: 'wardrobe' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 150, interval: 0.07 },
@@ -136,7 +136,7 @@
     },
     backlot: {
       ep: 2, map: { x: 2, y: 0 },
-      name: 'THE BACKLOT', floor: '#22201a',
+      name: 'THE BACKLOT', floor: '#22201a', decor: 'crates',
       exits: { E: 'serverroom', S: 'gallery' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
@@ -149,7 +149,7 @@
     },
     gallery: {
       ep: 2, map: { x: 1, y: 1 },
-      name: 'THE GALLERY', floor: '#1c2024',
+      name: 'THE GALLERY', floor: '#1c2024', decor: 'monitors',
       exits: { E: 'serverroom', N: 'backlot' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 160, interval: 0.06 },
@@ -162,7 +162,7 @@
     },
     serverroom: {
       ep: 2, map: { x: 3, y: 0.5 },
-      name: 'SERVER ROOM', floor: '#181e26',
+      name: 'SERVER ROOM', floor: '#181e26', decor: 'servers',
       exits: { E: 'suite', S: 'gallery' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 180, interval: 0.055 },
@@ -176,13 +176,13 @@
     },
     suite: {
       ep: 2, map: { x: 4, y: 0.5 },
-      name: 'EXECUTIVE SUITE', floor: '#26202e',
+      name: 'EXECUTIVE SUITE', floor: '#26202e', decor: 'bossfloor',
       exits: {},
       boss: 'executive',
       waves: []
     },
     endless: {
-      name: 'ENDLESS ARENA', floor: '#161d1c',
+      name: 'ENDLESS ARENA', floor: '#161d1c', decor: 'stage',
       exits: {},
       endless: true,   // waves are generated forever by DA.endlessWave(n)
       waves: []

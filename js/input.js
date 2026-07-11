@@ -21,13 +21,18 @@
   DA.pickAimAxes = function (idleStreaks, min, max) {
     function stickLike(i) { return typeof idleStreaks[i] === 'number' && idleStreaks[i] >= 10; }
     function live(i) { return stickLike(i) && min[i] < -0.25 && max[i] > 0.25; }
-    // spec says 3; common alternates 5 and 4; then hunt through anything else
-    // the browser reports (axes 0-2 are left stick + right-stick X)
-    var candidates = [3, 5, 4];
-    for (var extra = 6; extra < idleStreaks.length; extra++) candidates.push(extra);
-    for (var c = 0; c < candidates.length; c++) {
-      if (live(candidates[c])) return { x: 2, y: candidates[c], proven: true };
+    // Browsers disagree about which axes the right stick lives on (Chrome 2/3
+    // or 2/5, Firefox often 3/4...). We don't guess: the first two axes beyond
+    // the left stick that PROVE they're a stick (idle at zero, move both ways)
+    // become horizontal + vertical, in index order.
+    var found = [];
+    for (var i = 2; i < idleStreaks.length && found.length < 2; i++) {
+      if (live(i)) found.push(i);
     }
+    if (found.length === 2) return { x: found[0], y: found[1], proven: true };
+    // only one axis proven so far (e.g. the stick has only been wiggled
+    // vertically): use it as Y right away, keep the default X, don't lock yet
+    if (found.length === 1) return { x: 2, y: found[0], proven: false };
     return { x: 2, y: stickLike(3) ? 3 : -1, proven: false };
   };
 
@@ -37,7 +42,7 @@
       padWatch = { id: pad.id, min: pad.axes.slice(), max: pad.axes.slice(),
                    streak: pad.axes.map(function () { return 0; }),
                    bestStreak: pad.axes.map(function () { return 0; }),
-                   lockedY: -1 };
+                   lockedX: 2, lockedY: -1 };
     }
     for (var i = 0; i < pad.axes.length; i++) {
       var v = pad.axes[i];
@@ -53,11 +58,12 @@
     return padWatch;
   }
 
-  // Decide (and permanently lock) which axis is the right-stick vertical.
+  // Decide (and permanently lock) which axes the right stick lives on.
   function aimAxesFor(watch) {
     var pick = DA.pickAimAxes(watch.bestStreak, watch.min, watch.max);
-    if (watch.lockedY < 0 && pick.proven) watch.lockedY = pick.y;
-    return { x: pick.x, y: watch.lockedY >= 0 ? watch.lockedY : pick.y, locked: watch.lockedY >= 0 };
+    if (watch.lockedY < 0 && pick.proven) { watch.lockedX = pick.x; watch.lockedY = pick.y; }
+    var locked = watch.lockedY >= 0;
+    return { x: locked ? watch.lockedX : pick.x, y: locked ? watch.lockedY : pick.y, locked: locked };
   }
 
   var keys = {}, mouse = { x: DA.W / 2, y: DA.H / 2, down: false };

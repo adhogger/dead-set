@@ -140,7 +140,7 @@
   }
   setInterval(function () {
     if (!ctx || muted || ctx.state !== 'running') return;
-    var spb = 60 / 126 / 2;                      // 8th notes @ 126bpm
+    var spb = 60 / 152 / 2;                      // 8th notes @ 152bpm — drive, not plod
     if (mNext < ctx.currentTime) mNext = ctx.currentTime + 0.05;
     while (mNext < ctx.currentTime + 0.3) {
       var lvl = musicLevel();
