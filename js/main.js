@@ -66,6 +66,61 @@
     return st;
   }
 
+  // Title-screen taglines — one is drawn at random every time the page loads.
+  var TAGLINES = [
+    'The most-watched — and most-banned — show on Earth.',
+    'Filmed in front of a live studio audience. Once.',
+    'All complaints are automatically applauded.',
+    'Your outrage keeps the lights on.',
+    'Banned in 194 countries. Streaming in all of them.',
+    'The revolution was televised. Nobody switched over.',
+    'Made possible by viewers like you. This is your fault.',
+    'No animals were harmed. People were mostly people.',
+    "Entertainment's final form.",
+    'You watched it happen.',
+    'As real as anything else on television.',
+    'The ratings justify everything.',
+    "Because the news wasn't working anymore.",
+    'Everyone said it would never last. Everyone watched.',
+    'An honest show for dishonest times.',
+    'The sponsors would like to remain anonymous.',
+    'Now with 40% more regret.',
+    'Somebody greenlit this.',
+    'The camera adds ten pounds of guilt.',
+    'Not suitable for anyone. Watched by everyone.',
+    'Democracy voted. This won.',
+    "Every episode is somebody's last.",
+    "It's only exploitation if you look away.",
+    'Proudly failing every ethics review since Season 3.',
+    'The waiting list to die on air is nine years.',
+    "Fifty million complaints can't be wrong.",
+    'Bread. Circuses. Us.',
+    "Tonight's episode is rated: inevitable.",
+    'The off switch was discontinued.',
+    "History's most profitable apology.",
+    'Watched by billions. Loved by shareholders.',
+    'Set your moral compass to standby.',
+    'The final episode of everything.',
+    'Survivors get residuals.',
+    'Please do not adjust your conscience.',
+    'It was this or the election coverage.',
+    'Product placement continues after death.',
+    'A hospice for primetime.',
+    'All contestants signed something.',
+    'Coming up next: nothing. Ever again.',
+    'Your attention span built this arena.',
+    'The last thing 4 billion people will agree on.',
+    'So bad for society they banned society.',
+    'Written by focus group. Directed by algorithm.',
+    'The end of the world, sponsored.',
+    'One-star reviews are read aloud to the monsters.',
+    "If you can read this, you're the audience.",
+    'Blood is the only honest special effect.',
+    'Thank you for not caring.',
+    'Live from the end of civilisation.'
+  ];
+  var tagline = TAGLINES[Math.floor(Math.random() * TAGLINES.length)];
+
   // The legend of SLASH TV, told before your first-ever run. FIRE advances.
   var INTRO = [
     ['For twelve years, SLASH TV was the most-watched',
@@ -674,7 +729,7 @@
       var lines = [
         { text: 'SLASH TV', font: 'bold 96px monospace', color: '#e8d44d', y: 240 },
         { text: 'THE FINAL BROADCAST', font: 'bold 32px monospace', color: '#d43a4b', y: 290 },
-        { text: 'The most-watched — and most-banned — show on Earth.', font: '21px monospace', color: '#f2f2e9', y: 328 },
+        { text: tagline, font: '21px monospace', color: '#f2f2e9', y: 328 },
         { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 }
       ];
       if (ep2Unlocked()) {
