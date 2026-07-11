@@ -230,6 +230,20 @@ test('wave manager reports victory when all waves cleared', function () {
   for (var i = 0; i < 4000; i++) { DA.updateWaves(wm, enemies, 0.25); enemies.length = 0; }
   assert(wm.done === true);
 });
+test('burst groups spawn in packs with quiet gaps, all from one door', function () {
+  var room = { waves: [{ doors: 4, groups: [{ type: 'shambler', count: 12, interval: 9, burst: 4 }] }] };
+  var wm = DA.makeWaveManager(room);
+  var enemies = [];
+  for (var i = 0; i < 60; i++) DA.updateWaves(wm, enemies, 0.05); // 3s: pause + first pack
+  assert(enemies.length === 4, 'exactly one pack of 4 so far, got ' + enemies.length);
+  var doorX = enemies[0].x, doorY = enemies[0].y;
+  for (i = 1; i < 4; i++) {
+    assert(Math.abs(enemies[i].x - doorX) < 120 && Math.abs(enemies[i].y - doorY) < 120,
+           'the whole pack pours from the same door');
+  }
+  for (i = 0; i < 40; i++) DA.updateWaves(wm, enemies, 0.05);     // 2s more: inside the gap
+  assert(enemies.length === 4, 'gap between packs stays quiet');
+});
 test('waves stagger their spawn doors per the room data', function () {
   var wm = DA.makeWaveManager(DA.ROOMS.studio1);
   var enemies = [];
