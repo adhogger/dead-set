@@ -15,7 +15,7 @@
     var g = gun || DA.GUNS.pistol;
     arr.push({ x: x, y: y, dx: dx, dy: dy, r: g.dmg > 1 ? 5 : 4, speed: g.speed,
                dmg: g.dmg, pierce: !!g.pierce, hit: g.pierce ? [] : null,
-               color: g.color, gunLabel: g.label });
+               color: g.color, gunLabel: g.label, bot: !!(gun && gun.botOwned) });
   };
   DA.updateBullets = function (arr, dt) {
     for (var i = arr.length - 1; i >= 0; i--) {
@@ -34,7 +34,8 @@
       var off = g.pellets > 1 ? (i - (g.pellets - 1) / 2) * (g.fan / (g.pellets - 1)) : 0;
       var a = base + off + DA.rand(-g.jitter, g.jitter);
       var dx = Math.cos(a), dy = Math.sin(a);
-      DA.fireBullet(arr, p.x + dx * 20, p.y + dy * 20, dx, dy, g);
+      DA.fireBullet(arr, p.x + dx * 20, p.y + dy * 20, dx, dy,
+                    p.bot ? Object.assign({ botOwned: true }, g) : g);
     }
     if (DA.audio) DA.audio.shot();
     return g.pellets;
@@ -59,7 +60,7 @@
   // ---- enemy projectiles (the boss's "paparazzi flashes") ----
   var EB_SPEED = 200;
   DA.fireEnemyBullet = function (arr, x, y, dx, dy) {
-    arr.push({ x: x, y: y, dx: dx, dy: dy, r: 6 });
+    arr.push({ id: DA.newId(), x: x, y: y, dx: dx, dy: dy, r: 6 });
   };
   // st is optional (sims/tests may omit it) — used for combo reset on hit
   DA.updateEnemyBullets = function (arr, player, dt, st) {
@@ -70,18 +71,24 @@
         arr.splice(i, 1);
         continue;
       }
-      if (!DA.circleHit(b.x, b.y, b.r, player.x, player.y, player.r)) continue;
-      if (player.shieldT > 0) {                 // the shield eats the flash
-        arr.splice(i, 1);
-        if (DA.burst) DA.burst(b.x, b.y, '#9ad7ff', 6);
-        continue;
-      }
-      if (player.invuln <= 0) {
-        arr.splice(i, 1);
-        player.hearts--;
-        player.invuln = 1.5;
-        if (st && DA.resetCombo) DA.resetCombo(st);
-        if (DA.onPlayerHurt) DA.onPlayerHurt({ player: player });
+      var ps = player.length != null ? player : [player];
+      for (var pj = 0; pj < ps.length; pj++) {
+        var pl = ps[pj];
+        if (pl.downed) continue;
+        if (!DA.circleHit(b.x, b.y, b.r, pl.x, pl.y, pl.r)) continue;
+        if (pl.shieldT > 0) {                   // the shield eats the flash
+          arr.splice(i, 1);
+          if (DA.burst) DA.burst(b.x, b.y, '#9ad7ff', 6);
+          break;
+        }
+        if (pl.invuln <= 0) {
+          arr.splice(i, 1);
+          pl.hearts--;
+          pl.invuln = 1.5;
+          if (st && !pl.bot && DA.comboHit) DA.comboHit(st);
+          if (DA.onPlayerHurt) DA.onPlayerHurt({ player: pl });
+          break;
+        }
       }
     }
   };

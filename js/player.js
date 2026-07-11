@@ -23,11 +23,15 @@
   };
   // boostsTicking === false freezes spread/boots timers (between fights and rooms,
   // so a late pickup isn't wasted walking to the exit)
-  DA.updatePlayer = function (p, dt, boostsTicking) {
-    var s = DA.input.state(p.x, p.y);
-    DA.movePlayer(p, s.moveX, s.moveY, dt);
+  // input is a plain {moveX, moveY, aimX, aimY, firing} state. The human
+  // passes DA.input.state(), the bot passes DA.botInput(), and a networked
+  // player will pass the last packet — same shape for all three.
+  DA.updatePlayer = function (p, input, dt, boostsTicking) {
+    var s = input || { moveX: 0, moveY: 0, aimX: 0, aimY: 0, firing: false };
+    var mul = p.downed ? 0.25 : 1;          // downed contestants crawl
+    DA.movePlayer(p, s.moveX * mul, s.moveY * mul, dt);
     if (s.aimX || s.aimY) { p.aimX = s.aimX; p.aimY = s.aimY; }
-    p.firing = s.firing;
+    p.firing = p.downed ? false : !!s.firing;
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
     if (boostsTicking !== false) {
@@ -57,12 +61,39 @@
         ctx.beginPath(); ctx.arc(0, 0, p.r + 7, 0, 7); ctx.stroke();
       }
     }
+    if (p.downed) {                                  // crawling, waiting for a hand
+      ctx.rotate(Math.atan2(p.aimY, p.aimX));
+      ctx.globalAlpha = 0.85;
+      ctx.scale(1, 0.6);
+      ctx.fillStyle = p.bot ? '#7fa3b5' : '#c9c9c0';
+      ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+      if (p.reviveP > 0) {                           // the helping-hand ring
+        ctx.strokeStyle = '#7ee081'; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(p.x, p.y - p.r - 14, 10, -1.57, -1.57 + p.reviveP * 6.283);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      return;
+    }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
-    ctx.fillStyle = '#f2f2e9';                       // body
+    ctx.fillStyle = p.remote ? '#f2e2b0' :           // guest seats wear gold-tinted white
+                    (p.bot ? '#a8c8d8' : '#f2f2e9'); // body (CAM-BOT runs brushed steel)
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';             // outline
     ctx.lineWidth = 2;
     ctx.stroke();
+    if (p.bot) {                                     // camera lens + antenna
+      ctx.fillStyle = '#1a2630';
+      ctx.beginPath(); ctx.arc(p.r * 0.45, 0, 4.5, 0, 7); ctx.fill();
+      ctx.fillStyle = '#d43a4b';                     // tally light: always recording
+      ctx.beginPath(); ctx.arc(p.r * 0.45, 0, 1.8, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#5a7a8a'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-p.r * 0.5, -p.r * 0.5); ctx.lineTo(-p.r - 6, -p.r - 6); ctx.stroke();
+      ctx.fillStyle = '#9ad7ff';
+      ctx.beginPath(); ctx.arc(-p.r - 6, -p.r - 6, 2.5, 0, 7); ctx.fill();
+    }
     ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
     ctx.fillStyle = '#333';                          // gun

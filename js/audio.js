@@ -99,13 +99,60 @@
     roar: function () {
       blip(160, 0.5, 'sawtooth', 0.3, 55);
       noise(0.4, 0.2, 400);
+    },
+    death: function () {                 // the final cut: thud, fall, and a thin ring
+      noise(0.3, 0.4, 500);
+      blip(180, 0.9, 'sawtooth', 0.35, 30);
+      setTimeout(function () { blip(980, 1.6, 'sine', 0.05, 940); }, 350);
     }
   };
 
-  // ---- music: a synthesized loop that thickens with the horde ----
-  // A lookahead scheduler queues 8th notes at 126bpm. Layers by intensity:
-  // title = sparse bass pulse; combat = kick + bass; big horde adds hats;
-  // boss fights transpose darker and add a stab.
+  // ---- music: the show's pulse is literally a pulse ----
+  // A lookahead scheduler beats a slow heartbeat that quickens with the horde:
+  // an empty set idles near 40bpm, a packed one races toward 120. Hi-hats
+  // sneak in on top as the pressure climbs; the boss adds a dark stab. On
+  // death the heart stumbles, slows, and gives out before the fade.
+  function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+  function lub(t, vol) {                         // the two-part thump
+    noteAt(t, 62, 0.15, 'sine', vol, 30);
+    noteAt(t + 0.13, 52, 0.13, 'sine', vol * 0.6, 28);
+  }
+  function intensity() {                         // 0..1 from the horde; -1 while dying
+    var st = DA.state;
+    if (!st) return 0;
+    if (st.mode === 'dying') return -1;
+    if (st.mode !== 'playing') return 0;         // menus idle at a faint resting pulse
+    if (st.enemies) {
+      for (var i = 0; i < st.enemies.length; i++) if (st.enemies[i].isBoss) return 1;
+      return DA.clamp(st.enemies.length / 50, 0.06, 1);
+    }
+    return 0.06;
+  }
+  var beatNext = 0, beatNo = 0;
+  setInterval(function () {
+    if (!ctx || muted || ctx.state !== 'running') return;
+    if (beatNext < ctx.currentTime) beatNext = ctx.currentTime + 0.05;
+    while (beatNext < ctx.currentTime + 0.35) {
+      var k = intensity();
+      if (k < 0) {                               // dying: the heart gives out
+        var st = DA.state;
+        var gone = st.deathT == null ? 1 : DA.clamp(1 - st.deathT / (DA.DEATH_T || 3.8), 0, 1);
+        if (gone < 0.72) lub(beatNext, 0.55 * (1 - gone));
+        beatNext += 0.8 + gone * 1.4;            // each beat further apart, then nothing
+        beatNo++;
+        continue;
+      }
+      var T = 1.5 - k * 1.0;                     // beat interval: 1.5s calm -> 0.5s frantic
+      lub(beatNext, k <= 0.06 ? 0.22 : 0.3 + k * 0.3);
+      if (k > 0.35) {                            // hats sneak in over the beat
+        var sub = k > 0.65 ? 4 : 2;
+        for (var h = 1; h < sub; h++) noiseAt(beatNext + (T / sub) * h, 0.025, 0.03 + k * 0.045, 7000);
+      }
+      if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
+      beatNo++;
+      beatNext += T;
+    }
+  }, 100);
   function noteAt(t, freq, dur, type, vol, endFreq) {
     var osc = ctx.createOscillator(), g = ctx.createGain();
     osc.type = type; osc.frequency.setValueAtTime(freq, t);
@@ -128,30 +175,5 @@
     src.connect(f); f.connect(g); g.connect(musicGain);
     src.start(t);
   }
-  function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-  var BASS = [45, 45, 48, 45, 43, 43, 50, 48];   // brooding A-minor line
-  var mStep = 0, mNext = 0;
-  function musicLevel() {
-    var st = DA.state;
-    if (!st || st.mode !== 'playing') return 0;  // menus: sparse pulse
-    var n = st.enemies ? st.enemies.length : 0;
-    if (st.enemies) for (var i = 0; i < st.enemies.length; i++) if (st.enemies[i].isBoss) return 3;
-    return n > 60 ? 2 : (n > 0 ? 1 : 0.5);
-  }
-  setInterval(function () {
-    if (!ctx || muted || ctx.state !== 'running') return;
-    var spb = 60 / 152 / 2;                      // 8th notes @ 152bpm — drive, not plod
-    if (mNext < ctx.currentTime) mNext = ctx.currentTime + 0.05;
-    while (mNext < ctx.currentTime + 0.3) {
-      var lvl = musicLevel();
-      var dark = lvl === 3 ? -3 : 0;             // boss key change
-      if (mStep % 4 === 0 && lvl >= 1) noteAt(mNext, 105, 0.1, 'sine', lvl === 3 ? 0.5 : 0.38, 34); // kick
-      if (mStep % 2 === 0) noteAt(mNext, hz(BASS[(mStep / 2) % 8] + dark), 0.17, 'sawtooth',
-                                  lvl === 0 ? 0.035 : 0.08);                                        // bass
-      if (mStep % 2 === 1 && lvl >= 2) noiseAt(mNext, 0.03, 0.05, 6000);                            // hats
-      if (mStep % 8 === 6 && lvl === 3) noteAt(mNext, hz(57 + dark), 0.12, 'square', 0.06);         // stab
-      mStep = (mStep + 1) % 16;
-      mNext += spb;
-    }
-  }, 100);
+
 })();

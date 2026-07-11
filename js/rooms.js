@@ -27,7 +27,7 @@
     makeup: {
       map: { x: 0, y: 1 },
       name: 'MAKEUP', floor: '#221a20', decor: 'mirrors',
-      exits: { E: 'cafeteria', S: 'props' },
+      exits: { E: 'cafeteria' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 95, interval: 1.1, burst: 7 },
                              { type: 'sprinter', count: 12, interval: 2.0, speed: 110 }] },
@@ -50,7 +50,7 @@
     cafeteria: {
       map: { x: 1, y: 1 },
       name: 'STAFF CAFETERIA', floor: '#1a1f22', decor: 'tables',
-      exits: { E: 'controlroom', N: 'editing' },
+      exits: { E: 'controlroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 105, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 4,  interval: 8 }] },
@@ -63,7 +63,7 @@
     editing: {
       map: { x: 3, y: 0 },
       name: 'EDITING BAY', floor: '#1d1a22', decor: 'desks',
-      exits: { E: 'stage', S: 'controlroom' },
+      exits: { S: 'stage' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 100, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 50, interval: 1.3, burst: 5 },
@@ -78,7 +78,7 @@
     controlroom: {
       map: { x: 2, y: 1 },
       name: 'CONTROL ROOM', floor: '#221d1a', decor: 'monitors',
-      exits: { E: 'stage', N: 'editing' },
+      exits: { E: 'stage' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 85, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 30, interval: 1.3, burst: 5 },
@@ -91,7 +91,7 @@
       ]
     },
     stage: {
-      map: { x: 4, y: 0.5 },
+      map: { x: 3, y: 1 },
       name: 'SOUND STAGE 5', floor: '#241a1a', decor: 'bossfloor',
       exits: {},
       boss: 'producer',
@@ -125,7 +125,7 @@
     catering: {
       ep: 2, map: { x: 0, y: 1 },
       name: 'CRAFT SERVICES', floor: '#1c2420', decor: 'tables',
-      exits: { E: 'gallery', N: 'wardrobe' },
+      exits: { E: 'gallery' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 105, interval: 1.1, burst: 7 },
                              { type: 'boomer',   count: 3,  interval: 6 }] },
@@ -137,7 +137,7 @@
     backlot: {
       ep: 2, map: { x: 2, y: 0 },
       name: 'THE BACKLOT', floor: '#22201a', decor: 'crates',
-      exits: { E: 'serverroom', S: 'gallery' },
+      exits: { S: 'serverroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 6 },
@@ -150,7 +150,7 @@
     gallery: {
       ep: 2, map: { x: 1, y: 1 },
       name: 'THE GALLERY', floor: '#1c2024', decor: 'monitors',
-      exits: { E: 'serverroom', N: 'backlot' },
+      exits: { E: 'serverroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 40, interval: 1.3, burst: 5 },
@@ -161,9 +161,9 @@
       ]
     },
     serverroom: {
-      ep: 2, map: { x: 3, y: 0.5 },
+      ep: 2, map: { x: 2, y: 1 },
       name: 'SERVER ROOM', floor: '#181e26', decor: 'servers',
-      exits: { E: 'suite', S: 'gallery' },
+      exits: { E: 'suite' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 125, interval: 1.1, burst: 7 },
                              { type: 'sprinter', count: 22, interval: 1.1, speed: 180 },
@@ -175,7 +175,7 @@
       ]
     },
     suite: {
-      ep: 2, map: { x: 4, y: 0.5 },
+      ep: 2, map: { x: 3, y: 1 },
       name: 'EXECUTIVE SUITE', floor: '#26202e', decor: 'bossfloor',
       exits: {},
       boss: 'executive',
@@ -221,8 +221,9 @@
   function startWave(wm) {
     var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
     wm.activeDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    var coop = DA.state && DA.state.players && DA.state.players.length > 1 ? 1.4 : 1;
     wm.spawners = wave.groups.map(function (g) {
-      return { type: g.type, left: g.count, interval: g.interval, speed: g.speed,
+      return { type: g.type, left: Math.round(g.count * coop), interval: g.interval, speed: g.speed,
                burst: g.burst || 1, burstLeft: 0, burstDoor: null, timer: 0.5 };
     });
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
@@ -246,6 +247,14 @@
         if (s.burstLeft <= 0) {
           s.burstLeft = Math.min(s.burst, s.left);
           var doors = wm.activeDoors || DA.DOORS;
+          // never open a pack in the player's face if any other door is live
+          var p = DA.state && DA.state.player;
+          if (p) {
+            var far = doors.filter(function (dd) {
+              return DA.dist2(dd.x, dd.y, p.x, p.y) > 240 * 240;
+            });
+            if (far.length > 0) doors = far;
+          }
           s.burstDoor = doors[Math.floor(Math.random() * doors.length)];
         }
         s.burstLeft--; s.left--;

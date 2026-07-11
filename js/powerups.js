@@ -67,7 +67,7 @@
         st.powerupT = DA.rand(12, 18);
         var type = DA.pickDropType(st.player, st.lastGunDrop);
         if (type.indexOf('gun_') === 0) st.lastGunDrop = type;
-        st.powerups.push({ type: type, t: LIFETIME,
+        st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME,
                            x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),
                            y: DA.rand(DA.ARENA.y0 + 120, DA.ARENA.y1 - 120) });
         if (DA.announce) DA.announce('SPONSOR DROP!');
@@ -79,12 +79,17 @@
       var pu = st.powerups[i];
       pu.t -= dt;
       if (pu.t <= 0) { st.powerups.splice(i, 1); continue; }
-      if (DA.circleHit(pu.x, pu.y, 14, st.player.x, st.player.y, st.player.r)) {
+      var ps = st.players || [st.player];
+      for (var pc = 0; pc < ps.length; pc++) {
+        var pl = ps[pc];
+        if (pl.downed) continue;
+        if (!DA.circleHit(pu.x, pu.y, 14, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
-        else DA.applyPowerup(st.player, pu.type);
+        else DA.applyPowerup(pl, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
         if (DA.audio) DA.audio.pickup();
         st.powerups.splice(i, 1);
+        break;
       }
     }
   };
