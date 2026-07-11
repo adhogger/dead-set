@@ -670,7 +670,7 @@
         'left thumb moves — right thumb aims & fires — tap to start' :
         (DA.input.gamepadConnected() ?
           '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
-          'WASD moves — mouse aims — click fires (or plug in a gamepad)');
+          'WASD moves — mouse click or ARROW KEYS fire (or plug in a gamepad)');
       var lines = [
         { text: 'SLASH TV', font: 'bold 96px monospace', color: '#e8d44d', y: 240 },
         { text: 'THE FINAL BROADCAST', font: 'bold 32px monospace', color: '#d43a4b', y: 290 },

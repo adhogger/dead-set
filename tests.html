@@ -112,6 +112,18 @@ test('touch stick vector: deadzone, direction, and clamping', function () {
   assert(diag.x > 0.6 && diag.y < -0.6, 'diagonals work');
 });
 
+test('arrow keys aim and fire, keyboard-only', function () {
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
+  window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight' }));
+  var s = DA.input.state(640, 360);
+  assert(s.firing === true, 'holding an arrow fires');
+  assert(s.aimX > 0.6 && s.aimY < -0.6, 'up+right = diagonal aim, got ' + s.aimX + ',' + s.aimY);
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowUp' }));
+  window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowRight' }));
+  s = DA.input.state(640, 360);
+  assert(s.firing === false, 'released arrows stop firing');
+});
+
 // player tests
 test('player stays inside arena walls', function () {
   var p = DA.makePlayer();

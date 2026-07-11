@@ -115,7 +115,10 @@
   window.addEventListener('touchend', endTouch);
   window.addEventListener('touchcancel', endTouch);
 
-  window.addEventListener('keydown', function (e) { keys[e.code] = true; device = 'keyboard'; });
+  window.addEventListener('keydown', function (e) {
+    keys[e.code] = true; device = 'keyboard';
+    if (e.code.indexOf('Arrow') === 0) e.preventDefault(); // arrows fire, never scroll
+  });
   window.addEventListener('keyup', function (e) { keys[e.code] = false; });
   window.addEventListener('mousemove', function (e) {
     var p = DA.screenToCanvas(e.clientX, e.clientY, window.innerWidth, window.innerHeight);
@@ -153,6 +156,15 @@
       }
       var mx = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0);
       var my = (keys.KeyS ? 1 : 0) - (keys.KeyW ? 1 : 0);
+      // arrow keys are a keyboard-only second stick, SNES Smash TV style:
+      // holding an arrow (or two, for diagonals) aims AND fires that way
+      var kx = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0);
+      var ky = (keys.ArrowDown ? 1 : 0) - (keys.ArrowUp ? 1 : 0);
+      if (kx || ky) {
+        var karrow = DA.norm(kx, ky);
+        return { moveX: mx, moveY: my, aimX: karrow.x, aimY: karrow.y,
+                 firing: true, device: 'keyboard' };
+      }
       var maim = DA.norm(mouse.x - playerX, mouse.y - playerY);
       return { moveX: mx, moveY: my, aimX: maim.x, aimY: maim.y,
                firing: mouse.down, device: 'keyboard' };

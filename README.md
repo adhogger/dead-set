@@ -22,7 +22,8 @@ scores and run stats (kills, accuracy, favorite gun) are saved in your browser.
 
 **Gamepad (recommended):** left stick moves; push the right stick in any direction to fire
 that way (right trigger also fires). Press **G** for a raw controller readout if inputs act oddly.
-**Keyboard + mouse:** WASD moves, mouse aims, click (hold) fires.
+**Keyboard:** WASD moves; mouse aims and click fires — or go keyboard-only,
+SNES-style: hold the **arrow keys** to aim and fire in that direction (diagonals work).
 **Phone / tablet:** floating twin thumbsticks — left half of the screen moves, right half
 aims & fires; tap the top-right corner to pause. Rotate to landscape.
 Whichever you touched last wins. **M** mutes sound and music.
