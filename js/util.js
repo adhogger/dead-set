@@ -27,5 +27,12 @@ var DA = {
   },
   // monotonic entity ids: network snapshots will reference enemies and drops by these
   _id: 1,
-  newId: function () { return DA._id++; }
+  newId: function () { return DA._id++; },
+  hashSeed: function (str) {          // any string (a date, a room code) to a 32-bit seed
+    var h = 2166136261;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i); h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
 };

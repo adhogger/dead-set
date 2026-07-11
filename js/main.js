@@ -290,8 +290,15 @@
   var TICK = 1 / 60;
   var last = performance.now(), acc = 0;
   function frame(now) {
-    acc += Math.min((now - last) / 1000, 0.1);  // clamp: tab-switch safety
+    var rdt = Math.min((now - last) / 1000, 0.1);
     last = now;
+    if (DA.net && DA.net.guestActive) {         // guests render the host's world
+      DA.net.guestFrame(rdt);
+      render(ctx);
+      requestAnimationFrame(frame);
+      return;
+    }
+    acc += rdt;                                 // clamp above: tab-switch safety
     var steps = 0;
     while (acc >= TICK && steps < 4) {          // catch up, but never spiral
       update(TICK);
@@ -448,6 +455,7 @@
     pauseWasHeld = pauseHeld;
     if (DA.input.consumePauseTap()) paused = !paused;
     if (paused) return;
+    if (DA.fx.hitStop > 0) { DA.fx.hitStop -= dt; return; }   // the big-kill freeze frame
 
     var fighting = st.enemies.length > 0;
     for (var pi = 0; pi < st.players.length; pi++) {

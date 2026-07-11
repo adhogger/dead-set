@@ -56,7 +56,7 @@
         st.score += e.score * st.combo;
         if (e.isBoss) st.bossDead = true;
         if (DA.bumpCombo) DA.bumpCombo(st);
-        if (DA.onKill) DA.onKill(st, e);
+        if (DA.onKill) DA.onKill(st, e, b);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate
         continue;
       }

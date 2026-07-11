@@ -202,8 +202,8 @@
     }
   };
   var baseKill = DA.onKill;
-  DA.onKill = function (st, e) {
-    baseKill(st, e);
+  DA.onKill = function (st, e, b) {
+    baseKill(st, e, b);
     if (!B.on) return;
     if (Math.random() < Math.min(0.2 + st.combo * 0.09, 0.85)) popFlash();
     if (st.combo > B.lastCombo) B.applause = 1.4;      // the sign lights on a step up

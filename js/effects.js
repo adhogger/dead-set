@@ -64,10 +64,12 @@
     if (DA.fx.corpses.length > 80) DA.fx.corpses.shift();
   };
 
-  DA.burst = function (x, y, color, n) {
+  DA.burst = function (x, y, color, n, dx, dy) {
     for (var i = 0; i < n; i++) {
       var a = DA.rand(0, 6.28), s = DA.rand(60, 260);
-      DA.fx.particles.push({ x: x, y: y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      DA.fx.particles.push({ x: x, y: y,
+                             vx: Math.cos(a) * s + (dx || 0) * 170,   // spray follows the shot
+                             vy: Math.sin(a) * s + (dy || 0) * 170,
                              life: 0.5, maxLife: 0.5, color: color, r: DA.rand(2, 5) });
     }
   };
@@ -161,9 +163,10 @@
   };
 
   // Game-event hooks fired by combat.js / rooms.js
-  DA.onKill = function (st, e) {
+  DA.onKill = function (st, e, b) {          // b: the killing bullet, if any
     st.kills = (st.kills || 0) + 1;
-    DA.burst(e.x, e.y, e.color, e.isBoss ? 60 : 12);
+    DA.burst(e.x, e.y, e.color, e.isBoss ? 60 : 12, b && b.dx, b && b.dy);
+    if (e.isBoss || e.r >= 20) DA.fx.hitStop = 0.05;
     DA.splat(e.x, e.y);
     DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
