@@ -16,7 +16,7 @@
     greenroom: {
       map: { x: 1, y: 0 },
       name: 'THE GREEN ROOM', floor: '#2e352d', decor: 'lounge',
-      exits: { E: 'props', S: 'cafeteria' },
+      exits: { E: 'props' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 85, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 24, interval: 1.3, burst: 5 }] },
@@ -27,7 +27,7 @@
     makeup: {
       map: { x: 0, y: 1 },
       name: 'MAKEUP', floor: '#362e34', decor: 'mirrors',
-      exits: { E: 'cafeteria' },
+      exits: { S: 'cafeteria' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 95, interval: 1.1, burst: 7 },
                              { type: 'sprinter', count: 12, interval: 2.0, speed: 110 }] },
@@ -38,7 +38,7 @@
     props: {
       map: { x: 2, y: 0 },
       name: 'PROP DEPARTMENT', floor: '#34342e', decor: 'crates',
-      exits: { S: 'controlroom', E: 'editing' },
+      exits: { S: 'editing' },
       waves: [
         { doors: 3, groups: [{ type: 'swarmer',  count: 60, interval: 1.3, burst: 5 },
                              { type: 'sprinter', count: 16, interval: 1.8, speed: 130 }] },
@@ -48,7 +48,7 @@
       ]
     },
     cafeteria: {
-      map: { x: 1, y: 1 },
+      map: { x: 0, y: 2 },
       name: 'STAFF CAFETERIA', floor: '#2e3336', decor: 'tables',
       exits: { E: 'controlroom' },
       waves: [
@@ -61,7 +61,7 @@
       ]
     },
     editing: {
-      map: { x: 3, y: 0 },
+      map: { x: 2, y: 1 },
       name: 'EDITING BAY', floor: '#312e36', decor: 'desks',
       exits: { S: 'stage' },
       waves: [
@@ -76,7 +76,7 @@
       ]
     },
     controlroom: {
-      map: { x: 2, y: 1 },
+      map: { x: 1, y: 2 },
       name: 'CONTROL ROOM', floor: '#36312e', decor: 'monitors',
       exits: { E: 'stage' },
       waves: [
@@ -91,7 +91,7 @@
       ]
     },
     stage: {
-      map: { x: 3, y: 1 },
+      map: { x: 2, y: 2 },
       name: 'SOUND STAGE 5', floor: '#382e2e', decor: 'bossfloor',
       exits: {},
       boss: 'producer',
@@ -112,7 +112,7 @@
     wardrobe: {
       ep: 2, map: { x: 1, y: 0 },
       name: 'WARDROBE', floor: '#383230', decor: 'racks',
-      exits: { E: 'backlot', S: 'gallery' },
+      exits: { S: 'gallery' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 90, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 30, interval: 1.3, burst: 5 },
@@ -135,9 +135,9 @@
       ]
     },
     backlot: {
-      ep: 2, map: { x: 2, y: 0 },
+      ep: 2, map: { x: 2, y: 1 },
       name: 'THE BACKLOT', floor: '#36342e', decor: 'crates',
-      exits: { S: 'serverroom' },
+      exits: { S: 'suite' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 6 },
@@ -150,7 +150,7 @@
     gallery: {
       ep: 2, map: { x: 1, y: 1 },
       name: 'THE GALLERY', floor: '#303438', decor: 'monitors',
-      exits: { E: 'serverroom' },
+      exits: { E: 'backlot', S: 'serverroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 40, interval: 1.3, burst: 5 },
@@ -161,7 +161,7 @@
       ]
     },
     serverroom: {
-      ep: 2, map: { x: 2, y: 1 },
+      ep: 2, map: { x: 1, y: 2 },
       name: 'SERVER ROOM', floor: '#2c323a', decor: 'servers',
       exits: { E: 'suite' },
       waves: [
@@ -175,7 +175,7 @@
       ]
     },
     suite: {
-      ep: 2, map: { x: 3, y: 1 },
+      ep: 2, map: { x: 2, y: 2 },
       name: 'EXECUTIVE SUITE', floor: '#3a3442', decor: 'bossfloor',
       exits: {},
       boss: 'executive',
@@ -206,7 +206,7 @@
     catwalks: {
       ep: 3, map: { x: 1, y: 0 },
       name: 'THE CATWALKS', floor: '#262424', decor: 'catwalk', hazard: 'crane',
-      exits: { E: 'cranebay', S: 'pyrobay' },
+      exits: { S: 'cranebay' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 95, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 30, interval: 1.3, burst: 5 }] },
@@ -217,7 +217,7 @@
     greenscreen: {
       ep: 3, map: { x: 0, y: 1 },
       name: 'THE GREEN SCREEN STAGE', floor: '#1e3226', decor: 'stage',
-      exits: { E: 'pyrobay' },
+      exits: { E: 'cranebay', S: 'pyrobay' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 35, interval: 1.3, burst: 5 },
@@ -228,7 +228,7 @@
       ]
     },
     cranebay: {
-      ep: 3, map: { x: 2, y: 0 },
+      ep: 3, map: { x: 1, y: 1 },
       name: 'THE CRANE BAY', floor: '#2c2620', decor: 'cranebay', hazard: 'crane',
       exits: { E: 'corebay', S: 'lastlook' },
       waves: [
@@ -240,7 +240,7 @@
       ]
     },
     pyrobay: {
-      ep: 3, map: { x: 1, y: 1 },
+      ep: 3, map: { x: 0, y: 2 },
       name: 'THE PYROTECHNICS BAY', floor: '#301e1e', decor: 'pyrobay', hazard: 'pyro',
       exits: { E: 'lastlook' },
       waves: [
@@ -252,7 +252,7 @@
       ]
     },
     corebay: {
-      ep: 3, map: { x: 3, y: 0 },
+      ep: 3, map: { x: 2, y: 1 },
       name: 'THE BROADCAST RELAY', floor: '#20262e', decor: 'corebay', hazard: 'crane_pyro',
       exits: { S: 'broadcastcore' },
       waves: [
@@ -265,7 +265,7 @@
       ]
     },
     lastlook: {
-      ep: 3, map: { x: 2, y: 1 },
+      ep: 3, map: { x: 1, y: 2 },
       name: 'LAST LOOKS', floor: '#2a2430', decor: 'monitors', hazard: 'pyro',
       exits: { E: 'broadcastcore' },
       waves: [
@@ -279,7 +279,7 @@
       ]
     },
     broadcastcore: {
-      ep: 3, map: { x: 3, y: 1 },
+      ep: 3, map: { x: 2, y: 2 },
       name: 'THE BROADCAST CORE', floor: '#1c2828', decor: 'bossfloor', hazard: 'crane_pyro',
       exits: {},
       boss: 'algorithm',
