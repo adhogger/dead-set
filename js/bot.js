@@ -95,12 +95,13 @@
 
     // --- target selection: nearest, with a soft spot for boomers at range
     m.retT -= dt;
-    if (m.retT <= 0 || !m.target || m.target.hp <= 0 ||
+    if (m.retT <= 0 || !m.target || m.target.hp <= 0 || m.target.dying ||
         st.enemies.indexOf(m.target) === -1) {
       m.retT = 0.4;
       var pick = null, score = -1;
       for (i = 0; i < st.enemies.length; i++) {
         e = st.enemies[i];
+        if (e.dying) continue;                 // no shooting the corpse on live TV
         if (e.type === 'stalker' && DA.stalkerFaint(e)) continue;  // can't see it either
         d2 = DA.dist2(e.x, e.y, p.x, p.y);
         if (d2 > 560 * 560) continue;

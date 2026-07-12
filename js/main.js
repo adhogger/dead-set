@@ -90,11 +90,10 @@
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
-      // stage the entrance: the boss appears across the room from wherever the
-      // player walked in, and stays harmless for a beat while it talks trash
-      if (entryDir === 'N') boss.y = DA.H - 220; else boss.y = 200;
-      if (entryDir === 'W') boss.x = DA.W - 320;
-      else if (entryDir === 'E') boss.x = 320;
+      // stage the entrance: the boss descends from above the set to its mark,
+      // harmless while it talks trash — never frozen, never snapping to its AI
+      boss.homeX = boss.x; boss.homeY = boss.y;
+      boss.y = -80;
       boss.grace = 2.4;
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
@@ -106,7 +105,10 @@
     if (DA.net) DA.net.onEnterRoom(roomId, entryDir);
   }
 
-  function newGame(startRoom) {
+  // carry: the previous episode's state — score/kills/stats roll over so
+  // beating a boss CONTINUES the run into the next episode instead of
+  // dumping the contestant back at the start
+  function newGame(startRoom, carry) {
     DA._id = 1;                                 // fresh run, fresh entity ids
     DA.fx.particles.length = 0;
     DA.fx.splats.length = 0;
@@ -120,6 +122,11 @@
       roomsCleared: 0, groanT: 3, visited: {}, cleared: {}, seenTypes: {},
       stats: { shots: 0, hits: 0, killsByGun: {}, maxCombo: 1, start: performance.now() }
     };
+    if (carry) {                              // the run rolls on: bank the last episode
+      st.score = carry.score;
+      st.kills = carry.kills;
+      st.stats = carry.stats;                 // shots/hits/gun tallies keep accumulating
+    }
     st.players = [st.player];                 // st.player stays the human, always
     if (botOn) {
       var buddy = DA.makePlayer();
@@ -594,8 +601,10 @@
         return;
       }
       if (startHeld && !startWasHeld) {
-        DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
-                   { mode: 'intro', page: 0 } : newGame();
+        if (st.mode === 'winner' && (st.room.ep || 1) === 1) DA.state = newGame('writers', st);    // straight into Ep 2
+        else if (st.mode === 'winner' && st.room.ep === 2) DA.state = newGame('controlbooth', st); // straight into Ep 3
+        else DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
+                        { mode: 'intro', page: 0 } : newGame();
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
@@ -663,7 +672,13 @@
       }
     }
     var boss = findBoss(st);
-    if (boss && !(boss.grace > 0) && !boss.dying) {   // frozen during entrance + death scene
+    if (boss && boss.grace > 0 && !boss.dying) {      // entrance: glide down to the mark
+      boss.wobble += dt;
+      var homeY = boss.homeY + (boss.type === 'producer' ? Math.sin(boss.wobble * 1.7) * 40 : 0);
+      boss.y += (homeY - boss.y) * Math.min(1, 4 * dt);   // tracks the strut bob, so the
+      boss.x += (boss.homeX - boss.x) * Math.min(1, 4 * dt); // AI handoff has no visible seam
+    }
+    if (boss && !(boss.grace > 0) && !boss.dying) {   // AI held during entrance + death scene
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
@@ -1493,11 +1508,16 @@
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
                  font: 'bold 22px monospace', color: '#b78bff', y: 534 });
       }
+      var isEp1 = (st.room.ep || 1) === 1 && st.room.ep !== 'syn';
       w.push({ text: isSeasonFinale ? 'Thanks for watching SLASH TV. That was the whole show.' :
-                     (isEp2 ? 'EPISODE 3: LIVE FINALE UNLOCKED — press 4' :
-                              'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E'),
+                     (isEp2 ? 'The run continues — your score carries over.' :
+                     (isEp1 ? 'ENDLESS ARENA UNLOCKED (press E) — or keep the run going:' :
+                              'Same seed, same studio — can you rank higher?')),
                font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
-      w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 598 });
+      w.push({ text: isEp2 ? 'PRESS FIRE — EPISODE 3: LIVE FINALE' :
+                     (isEp1 ? 'PRESS FIRE — EPISODE 2: SWEEPS WEEK' :
+                              'PRESS FIRE TO PLAY AGAIN'),
+               font: 'bold 26px monospace', color: '#7ee081', y: 598 });
       if (window.SLASHTV_FEEDBACK_URL) {
         w.push({ text: 'F — 📝 TELL US WHAT YOU THOUGHT', font: '16px monospace', color: '#8888a0', y: 624 });
       }
