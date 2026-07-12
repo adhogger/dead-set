@@ -83,7 +83,7 @@
       for (var pc = 0; pc < ps.length; pc++) {
         var pl = ps[pc];
         if (pl.downed) continue;
-        if (!DA.circleHit(pu.x, pu.y, 14, pl.x, pl.y, pl.r)) continue;
+        if (!DA.circleHit(pu.x, pu.y, 22, pl.x, pl.y, pl.r)) continue;
         if (pu.type === 'bomb') DA.detonateBomb(st);
         else DA.applyPowerup(pl, pu.type);
         if (DA.burst) DA.burst(pu.x, pu.y, colorOf(pu.type), 14);
