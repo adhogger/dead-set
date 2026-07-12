@@ -413,6 +413,23 @@ test('spitters hold their range and lob globs at the player', function () {
   assert(sp.spitT >= 0.45, 'target broke range: the windup cancels');
   assert(eb.length === 1, 'out of range: no new glob');
 });
+test('elite zombies spawn with 3x hp and always drop a gift on death', function () {
+  var mr = Math.random;
+  Math.random = function () { return 0; };   // forces the elite roll
+  var arr = [];
+  DA.spawnAtDoor(arr, 'shambler');
+  Math.random = mr;
+  var e = arr[0];
+  assert(e.elite === true, 'a roll of 0 makes an elite');
+  assert(e.hp === 6 && e.score === 300, 'elite carries 3x hp and 3x score');
+  var st = { kills: 0, powerups: [], player: DA.makePlayer() };
+  DA.onKill(st, e);
+  assert(st.powerups.length === 1, 'elite death drops exactly one gift');
+  assert(st.powerups[0].x === e.x && st.powerups[0].y === e.y, 'the gift lands where it fell');
+  var st2 = { kills: 0, powerups: [], player: DA.makePlayer() };
+  DA.onKill(st2, DA.makeEnemy('shambler', 100, 100));
+  assert(st2.powerups.length === 0, 'ordinary kills drop nothing');
+});
 test('The Executive teleports, fires fans, and spirals in phase 2', function () {
   var b = DA.makeExecutive();
   assert(b.name === 'THE EXECUTIVE' && b.maxHp > 320, 'tougher than the Producer');

@@ -72,9 +72,27 @@
       noise(0.05, 0.16, 2600);
       blip(300 + DA.rand(-40, 40), 0.05, 'square', 0.06, 90);
     },
-    splat: function () {
+    splat: function (r) {
       noise(0.14, 0.3, 500);
-      blip(95 + DA.rand(-15, 15), 0.12, 'sine', 0.25, 40);
+      // pitch tracks body size: swarmers pop high, brutes land with a thud
+      var f = r ? DA.clamp(160 - r * 5, 55, 130) : 95;
+      blip(f + DA.rand(-12, 12), 0.12, 'sine', 0.25, 40);
+    },
+    spit: function () {                  // a spitter hocks a glob
+      blip(240, 0.1, 'sine', 0.12, 90);
+      noise(0.07, 0.08, 800);
+    },
+    elite: function () {                 // champion down: the audience pays out
+      blip(660, 0.09, 'square', 0.13, 880);
+      setTimeout(function () { blip(880, 0.12, 'square', 0.12, 1100); }, 70);
+    },
+    comboUp: function (step) {           // multiplier steps up: pitch climbs with it
+      blip(360 + Math.min(step || 1, 9) * 55, 0.1, 'triangle', 0.14, 700);
+    },
+    bossSting: function () {             // boss entrance / phase-2 enrage
+      blip(110, 0.5, 'sawtooth', 0.28, 55);
+      setTimeout(function () { blip(104, 0.55, 'sawtooth', 0.26, 52); }, 180);
+      setTimeout(function () { noise(0.35, 0.3, 350); }, 340);
     },
     hurt: function () {
       blip(130, 0.28, 'sawtooth', 0.4, 45);

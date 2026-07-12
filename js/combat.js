@@ -11,7 +11,10 @@
     st.comboTimer = COMBO_WINDOW;
     if (st.comboKills >= KILLS_PER_STEP) {
       st.comboKills = 0;
-      if (st.combo < COMBO_CAP) { st.combo++; st.comboPopT = 0.3; }
+      if (st.combo < COMBO_CAP) {
+        st.combo++; st.comboPopT = 0.3;
+        if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);
+      }
     }
   };
   DA.updateCombo = function (st, dt) {

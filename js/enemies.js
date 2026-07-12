@@ -52,11 +52,20 @@
   // Fresh spawns get a short "emerging" grace: they can be shot but can't hurt
   // the player, so walking past a door isn't an instant ambush.
   DA.SPAWN_GRACE = 0.6;
+  // Elites: rare gold-ringed champions — triple hp and score, and the
+  // audience ALWAYS throws a gift when one goes down (see DA.onKill).
+  var ELITE_CHANCE = 0.04;
   DA.spawnAtDoor = function (arr, type, speed, doors) {
     var pool = (doors && doors.length) ? doors : DA.DOORS;
     var d = pool[Math.floor(Math.random() * pool.length)];
     var e = DA.makeEnemy(type, d.x + DA.rand(-30, 30), d.y + DA.rand(-30, 30), speed);
     e.grace = DA.SPAWN_GRACE;
+    if (Math.random() < ELITE_CHANCE) {
+      e.elite = true;
+      e.hp *= 3;
+      e.score *= 3;
+      e.r = Math.round(e.r * 1.15);
+    }
     arr.push(e);
   };
   // enemyBullets is optional (older tests omit it) — spitters need it to fire
@@ -85,7 +94,7 @@
               var sv = DA.norm(player.x - e.x, player.y - e.y);
               DA.fireEnemyBullet(enemyBullets, e.x + sv.x * e.r, e.y + sv.y * e.r,
                                  sv.x, sv.y, { speed: 150, color: '#b8d44a', r: 7 });
-              if (DA.audio) DA.audio.groan();
+              if (DA.audio) (DA.audio.spit || DA.audio.groan)();
             }
           }
         } else if (e.spitT < SPIT_WINDUP) {
@@ -207,9 +216,14 @@
       ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
       var br = e.r * (1 + Math.sin(e.wobble * 2) * 0.06); // shuffling bob
+      if (e.elite) {                            // gold champion ring, always pulsing
+        ctx.strokeStyle = 'rgba(232, 212, 77, ' + (0.55 + Math.sin(performance.now() / 150) * 0.25).toFixed(3) + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(e.x, e.y, br + 5, 0, 7); ctx.stroke();
+      }
       ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : (lit ? '#fff3b0' : e.color); // fuse lit: strobe warning; hitFlash: fresh damage
       ctx.beginPath(); ctx.arc(e.x, e.y, br, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)';     // body outline
+      ctx.strokeStyle = e.elite ? '#e8d44d' : 'rgba(0,0,0,0.35)';     // body outline
       ctx.lineWidth = 2;
       ctx.stroke();
       ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size

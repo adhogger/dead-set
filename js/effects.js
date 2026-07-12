@@ -239,7 +239,14 @@
     DA.splat(e.x, e.y);
     DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
-    if (DA.audio) DA.audio.splat();
+    if (DA.audio) DA.audio.splat(e.r);
+    if (e.elite && st.powerups && DA.pickDropType) {   // a champion always pays out
+      var dtype = DA.pickDropType(st.player, st.lastGunDrop);
+      if (dtype.indexOf('gun_') === 0) st.lastGunDrop = dtype;
+      st.powerups.push({ id: DA.newId(), type: dtype, t: 12, x: e.x, y: e.y });
+      DA.burst(e.x, e.y, '#e8d44d', 18);
+      if (DA.audio && DA.audio.elite) DA.audio.elite();
+    }
     if (st.kills % 25 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
   };
   DA.onPlayerHurt = function (st, sx, sy) {

@@ -85,7 +85,7 @@
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
-      if (DA.audio) DA.audio.roar();
+      if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       DA.announce(st.room.name);
     }
@@ -582,6 +582,11 @@
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
+      if (!boss.enraged && DA.bossPhase(boss) === 2) {   // half health: phase 2 stinger
+        boss.enraged = true;
+        if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();
+        if (DA.addShake) DA.addShake(10);
+      }
     }
     DA.updateEnemies(st.enemies, st.players, dt, st.enemyBullets);
     DA.updateBoomers(st, dt);
