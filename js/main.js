@@ -100,7 +100,7 @@
       if (BOSS_TAUNTS[st.room.boss]) DA.announce(BOSS_TAUNTS[st.room.boss]);
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
-      DA.announce(st.room.name);
+      st.introCardT = 1.7;   // lower-third title card instead of an announcer line
     }
     if (DA.net) DA.net.onEnterRoom(roomId, entryDir);
   }
@@ -696,6 +696,7 @@
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
     DA.updateCombo(st, dt);
+    if (st.introCardT > 0) st.introCardT -= dt;
     if (st.combo > st.stats.maxCombo) st.stats.maxCombo = st.combo;
     DA.updatePowerups(st, dt);
     DA.updateFx(dt);
@@ -1029,7 +1030,7 @@
   // the pause-screen bestiary: live sprites drawn by the real enemy renderer,
   // threat lines from the same table the first-encounter callouts use — so
   // this page can never drift out of date with the actual game
-  var BESTIARY_ORDER = ['shambler', 'swarmer', 'sprinter', 'boomer', 'stalker', 'brute', 'spitter'];
+  var BESTIARY_ORDER = ['shambler', 'swarmer', 'sprinter', 'boomer', 'stalker', 'brute', 'spitter', 'gusher'];
   function drawBestiary(ctx) {
     ctx.fillStyle = 'rgba(10, 10, 15, 0.97)';
     ctx.fillRect(0, 0, DA.W, DA.H);
@@ -1051,6 +1052,30 @@
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#7ee081';
     ctx.fillText('Esc — back to the show', DA.W / 2, 682);
+  }
+
+  // TV lower-third: the room's title card slides up when the show cuts to a
+  // new set, exactly like a broadcast caption — then gets out of the way
+  function drawIntroCard(ctx, st) {
+    var t = st.introCardT;
+    var a = Math.max(0, Math.min(1, (1.7 - t) / 0.22, t / 0.4));
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.85)';
+    ctx.fillRect(0, 552, DA.W * 0.52, 86);
+    ctx.fillStyle = '#d43a4b';
+    ctx.fillRect(0, 552, 9, 86);
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 38px monospace';
+    ctx.fillStyle = '#f2f2e9';
+    ctx.fillText(st.room.name, 34, 596);
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = '#d43a4b';
+    if (Math.floor(t * 4) % 2 === 0) { ctx.beginPath(); ctx.arc(41, 618, 5, 0, 7); ctx.fill(); }
+    ctx.fillText('LIVE', 54, 623);
+    ctx.fillStyle = '#8888a0';
+    ctx.fillText('— ' + (st.room.ep === 'syn' ? "TONIGHT'S SYNDICATED EPISODE" :
+                         (st.room.endless ? 'ENDLESS ARENA' : 'EPISODE ' + (st.room.ep || 1))), 100, 623);
+    ctx.globalAlpha = 1;
   }
 
   function drawMap(ctx, st) {
@@ -1414,6 +1439,7 @@
     if (DA.broadcast) DA.broadcast.drawFrame(ctx, st);
     drawScreenFx(ctx);
     drawHud(ctx, st);
+    if (st.mode === 'playing' && st.introCardT > 0) drawIntroCard(ctx, st);
     if (st.mode === 'playing' && st.player.hearts === 1) {  // last-heart warning pulse
       var pulse = 0.14 + 0.1 * Math.sin(performance.now() / 260);
       ctx.globalAlpha = pulse;

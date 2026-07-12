@@ -413,6 +413,15 @@ test('spitters hold their range and lob globs at the player', function () {
   assert(sp.spitT >= 0.45, 'target broke range: the windup cancels');
   assert(eb.length === 1, 'out of range: no new glob');
 });
+test('gushers hose a three-glob fan', function () {
+  var gu = DA.makeEnemy('gusher', 400, 360);
+  gu.spitT = 0.01;
+  var eb = [];
+  DA.updateEnemies([gu], { x: 600, y: 360, r: 12 }, 0.02, eb);
+  assert(eb.length === 3, 'one trigger pull, three globs');
+  assert(eb[0].dy < -0.2 && eb[2].dy > 0.2, 'fan spreads above and below the center line');
+  assert(Math.abs(eb[1].dy) < 0.01 && eb[1].dx > 0.99, 'center glob flies straight at the player');
+});
 test('elite zombies spawn with 3x hp and always drop a gift on death', function () {
   var mr = Math.random;
   Math.random = function () { return 0; };   // forces the elite roll

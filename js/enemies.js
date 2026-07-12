@@ -6,7 +6,8 @@
     brute:    { r: 20, speed: 37,  hp: 10, score: 500, color: '#9b6bb3' },
     boomer:   { r: 14, speed: 73,  hp: 3,  score: 300, color: '#e8843c' },
     stalker:  { r: 11, speed: 78,  hp: 2,  score: 350, color: '#6c5b9e' },
-    spitter:  { r: 13, speed: 50,  hp: 3,  score: 400, color: '#a8b83c' }
+    spitter:  { r: 13, speed: 50,  hp: 3,  score: 400, color: '#a8b83c' },
+    gusher:   { r: 16, speed: 40,  hp: 6,  score: 650, color: '#79a832' }
   };
   // Spitters hold this range and lob bile globs instead of closing in —
   // the only non-boss ranged threat, so "walk backwards forever" stops working.
@@ -34,7 +35,7 @@
   };
   // How fast each type can change direction (radians/second). Low = staggers
   // past a dodging player, Smash TV style, instead of pivoting on a dime.
-  var TURN = { shambler: 1.7, sprinter: 3.2, swarmer: 3.8, brute: 1.1, boomer: 2.0, stalker: 2.6, spitter: 1.5 };
+  var TURN = { shambler: 1.7, sprinter: 3.2, swarmer: 3.8, brute: 1.1, boomer: 2.0, stalker: 2.6, spitter: 1.5, gusher: 1.2 };
   // Shortest-way angle steering, clamped to a max change. Pure and testable.
   DA.turnToward = function (heading, target, maxDelta) {
     var d = target - heading;
@@ -83,17 +84,22 @@
         e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
         if (DA.stalkerFaint(e)) sp *= 1.5;
       }
-      if (e.type === 'spitter') {
+      if (e.type === 'spitter' || e.type === 'gusher') {
         if (e.spitT == null) e.spitT = 2 + Math.random() * 1.5;
         if (!(e.grace > 0) && DA.dist2(e.x, e.y, player.x, player.y) < SPIT_RANGE * SPIT_RANGE) {
           sp = 0;                             // in range: plant feet and lob bile
           e.spitT -= dt;
           if (e.spitT <= 0) {
-            e.spitT = 2.6 + Math.random() * 1.2;
+            e.spitT = (e.type === 'gusher' ? 3.4 : 2.6) + Math.random() * 1.2;
             if (enemyBullets) {
-              var sv = DA.norm(player.x - e.x, player.y - e.y);
-              DA.fireEnemyBullet(enemyBullets, e.x + sv.x * e.r, e.y + sv.y * e.r,
-                                 sv.x, sv.y, { speed: 150, color: '#b8d44a', r: 7 });
+              var sa = Math.atan2(player.y - e.y, player.x - e.x);
+              var fanOffs = e.type === 'gusher' ? [-0.24, 0, 0.24] : [0];  // gushers hose a fan
+              for (var fo = 0; fo < fanOffs.length; fo++) {
+                DA.fireEnemyBullet(enemyBullets,
+                                   e.x + Math.cos(sa) * e.r, e.y + Math.sin(sa) * e.r,
+                                   Math.cos(sa + fanOffs[fo]), Math.sin(sa + fanOffs[fo]),
+                                   { speed: 150, color: '#b8d44a', r: e.type === 'gusher' ? 8 : 7 });
+              }
               if (DA.audio) (DA.audio.spit || DA.audio.groan)();
             }
           }
@@ -204,7 +210,8 @@
   };
   // darker limb/head tone per type — hand-picked so no per-frame color math
   var SKIN = { shambler: '#54903f', sprinter: '#a8434c', swarmer: '#3f97a5',
-               brute: '#6e4585', boomer: '#b5601f', stalker: '#584a80', spitter: '#87962c' };
+               brute: '#6e4585', boomer: '#b5601f', stalker: '#584a80', spitter: '#87962c',
+               gusher: '#5e8226' };
   DA.drawEnemies = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
@@ -284,7 +291,7 @@
       var px = -sh, py = ch;                          // perpendicular to heading
       ctx.fillRect(hx + ch * hr * 0.35 + px * hr * 0.45 - eye / 2, hy + sh * hr * 0.35 + py * hr * 0.45 - eye / 2, eye, eye);
       ctx.fillRect(hx + ch * hr * 0.35 - px * hr * 0.45 - eye / 2, hy + sh * hr * 0.35 - py * hr * 0.45 - eye / 2, eye, eye);
-      if (e.type === 'spitter') {                     // distended jaw bulges while a glob winds up
+      if (e.type === 'spitter' || e.type === 'gusher') {   // distended jaw bulges while a glob winds up
         var wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
         ctx.fillStyle = wind > 0 ? '#b8d44a' : '#2a2e18';
         ctx.beginPath();

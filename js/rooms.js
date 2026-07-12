@@ -265,7 +265,8 @@
                              { type: 'spitter',  count: 3,  interval: 6 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 1.05, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 5 },
-                             { type: 'stalker',  count: 7,  interval: 1.5 }] }
+                             { type: 'stalker',  count: 7,  interval: 1.5 },
+                             { type: 'gusher',   count: 2,  interval: 9 }] }
       ]
     },
     lastlook: {
@@ -280,7 +281,8 @@
                              { type: 'brute',    count: 5,  interval: 5 },
                              { type: 'sprinter', count: 18, interval: 1.2, speed: 185 },
                              { type: 'boomer',   count: 5,  interval: 5 },
-                             { type: 'spitter',  count: 4,  interval: 5 }] }
+                             { type: 'spitter',  count: 3,  interval: 5 },
+                             { type: 'gusher',   count: 2,  interval: 9 }] }
       ]
     },
     broadcastcore: {
@@ -302,6 +304,7 @@
     if (n >= 3) groups.push({ type: 'boomer', count: 1 + Math.floor(n / 3), interval: 6 });
     if (n >= 4) groups.push({ type: 'brute', count: Math.floor(n / 2), interval: 7 });
     if (n >= 5) groups.push({ type: 'spitter', count: 1 + Math.floor(n / 4), interval: 6 });
+    if (n >= 8) groups.push({ type: 'gusher', count: 1 + Math.floor(n / 8), interval: 9 });
     return { doors: Math.min(1 + Math.floor(n / 3), 3), groups: groups };
   };
 
