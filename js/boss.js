@@ -22,6 +22,7 @@
     var tp = DA.nearestPlayer(st.players || [st.player], b.x, b.y);
     b.wobble += dt;
     b.x += Math.sin(b.wobble * 0.9) * 40 * dt;
+    b.faceA = Math.atan2(tp.y - b.y, tp.x - b.x);
     b.teleportT -= dt;
     if (b.teleportT <= 0) {
       b.teleportT = phase === 2 ? 2.8 : 4;
@@ -194,6 +195,7 @@
     b.x += DA.clamp(want - b.x, -1, 1) * b.speed * (phase === 2 ? 1.5 : 1) * dt;
     b.wobble += dt;
     b.y = 190 + Math.sin(b.wobble * 1.7) * 40;
+    b.faceA = Math.atan2(tp.y - b.y, tp.x - b.x);     // the renderer turns him toward camera 1
     DA.clampToArena(b);
 
     b.burstT -= dt;
@@ -224,32 +226,67 @@
       if (DA.announce) DA.announce('GET ME MORE EXTRAS!');
     }
   };
+  // Suit-and-shades host, drawn in a rotated frame (facing +x) so the whole
+  // costume — lapels, tie, props — turns with him as he tracks the contestant.
   DA.drawBoss = function (ctx, b) {
+    var r = b.r;
     ctx.fillStyle = 'rgba(0,0,0,0.32)';               // grounding shadow
-    ctx.beginPath(); ctx.ellipse(b.x, b.y + b.r * 0.85, b.r * 0.95, b.r * 0.36, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + r * 0.85, r * 0.95, r * 0.36, 0, 0, 7); ctx.fill();
     ctx.save();
     ctx.translate(b.x, b.y);
-    ctx.fillStyle = b.color;                          // body
-    ctx.beginPath(); ctx.arc(0, 0, b.r, 0, 7); ctx.fill();
+    ctx.rotate(b.faceA != null ? b.faceA : 1.57);
+    var suit = b.color;
+    var suitDark = b.type === 'executive' ? '#5a68c9' : '#a87f12';
+    var swing = Math.sin((b.wobble || 0) * 1.7);
+    ctx.strokeStyle = suitDark;                       // ARMS
+    ctx.lineWidth = Math.max(5, r * 0.3);
+    ctx.lineCap = 'round';
+    if (b.type === 'executive') {
+      ctx.beginPath();                                // phone hand, up by the ear
+      ctx.moveTo(0, -r * 0.8); ctx.lineTo(r * 0.55, -r * 0.62); ctx.stroke();
+      ctx.beginPath();                                // free arm gesturing, sealing deals
+      ctx.moveTo(0, r * 0.8); ctx.lineTo(r * 0.9 + swing * 4, r * 0.85); ctx.stroke();
+      ctx.fillStyle = '#22222c';                      // the phone itself
+      ctx.fillRect(r * 0.5, -r * 0.78, r * 0.3, r * 0.42);
+    } else {
+      ctx.beginPath();                                // mic arm, thrust at the contestant
+      ctx.moveTo(0, -r * 0.8); ctx.lineTo(r * 1.35, -r * 0.3); ctx.stroke();
+      ctx.beginPath();                                // showman's flourish arm
+      ctx.moveTo(0, r * 0.8); ctx.lineTo(r * 0.7 + swing * 5, r * 1.05); ctx.stroke();
+      ctx.strokeStyle = '#22222c'; ctx.lineWidth = 3; // mic stem + foam ball
+      ctx.beginPath(); ctx.moveTo(r * 1.35, -r * 0.3); ctx.lineTo(r * 1.6, -r * 0.22); ctx.stroke();
+      ctx.fillStyle = '#1a1a20';
+      ctx.beginPath(); ctx.arc(r * 1.68, -r * 0.2, r * 0.18, 0, 7); ctx.fill();
+    }
+    ctx.fillStyle = suit;                             // shoulder pads either side
+    ctx.beginPath(); ctx.arc(0, -r * 0.82, r * 0.4, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, r * 0.82, r * 0.4, 0, 7); ctx.fill();
+    ctx.fillStyle = suit;                             // suit body
+    ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth = 3;
     ctx.stroke();
-    ctx.fillStyle = '#f2f2e9';                        // shirt
-    ctx.beginPath(); ctx.arc(0, b.r * 0.35, b.r * 0.5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f2f2e9';                        // shirt front
+    ctx.beginPath(); ctx.arc(r * 0.35, 0, r * 0.5, 0, 7); ctx.fill();
+    ctx.fillStyle = suitDark;                         // lapels closing over the shirt
+    ctx.beginPath(); ctx.moveTo(r * 0.1, -r * 0.5); ctx.lineTo(r * 0.9, -r * 0.28); ctx.lineTo(r * 0.15, -r * 0.05); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(r * 0.1, r * 0.5); ctx.lineTo(r * 0.9, r * 0.28); ctx.lineTo(r * 0.15, r * 0.05); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = b.type === 'executive' ? '#d4a017' : '#8c1c2c';   // the tie
+    ctx.fillRect(r * 0.12, -3.5, r * 0.7, 7);
+    var hr = r * 0.5;                                 // head, pushed toward the camera line
+    ctx.fillStyle = '#e0b08c';
+    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = b.type === 'executive' ? '#2c2c34' : '#b8b0a0';   // slicked hair, back of skull
+    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr + 0.5, 1.85, 4.45); ctx.lineTo(r * 0.42, 0); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(r * 0.42, 0, hr, 0, 7); ctx.stroke();
+    ctx.fillStyle = '#111';                           // shades: visor vs twin lenses
     if (b.type === 'executive') {
-      ctx.fillStyle = '#d4a017';                      // gold tie
-      ctx.fillRect(-4, b.r * 0.1, 8, b.r * 0.7);
-      ctx.fillStyle = '#111';                         // visor
-      ctx.fillRect(-b.r * 0.6, -b.r * 0.32, b.r * 1.2, b.r * 0.26);
-      ctx.fillStyle = '#22222c';                      // phone at ear
-      ctx.fillRect(b.r * 0.65, -b.r * 0.35, 7, b.r * 0.6);
+      ctx.fillRect(r * 0.42 + hr * 0.15, -hr * 0.75, hr * 0.42, hr * 1.5);
     } else {
-      ctx.fillStyle = '#8c1c2c';                      // power tie
-      ctx.fillRect(-4, b.r * 0.1, 8, b.r * 0.7);
-      ctx.fillStyle = '#111';                         // sunglasses
-      ctx.fillRect(-b.r * 0.62, -b.r * 0.3, b.r * 0.5, b.r * 0.26);
-      ctx.fillRect(b.r * 0.12, -b.r * 0.3, b.r * 0.5, b.r * 0.26);
-      ctx.fillRect(-b.r * 0.15, -b.r * 0.24, b.r * 0.3, 4);
+      ctx.fillRect(r * 0.42 + hr * 0.15, -hr * 0.72, hr * 0.45, hr * 0.55);
+      ctx.fillRect(r * 0.42 + hr * 0.15, hr * 0.17, hr * 0.45, hr * 0.55);
+      ctx.fillRect(r * 0.42 + hr * 0.2, -hr * 0.2, hr * 0.3, hr * 0.4);
     }
     ctx.restore();
   };
