@@ -929,16 +929,27 @@
     for (var r = 80; r <= 320; r += 80) {
       ctx.beginPath(); ctx.arc(DA.W / 2, DA.H / 2, r, 0, 7); ctx.stroke();
     }
-    // sweeping studio spotlights
+    // studio spotlights, one per corner: followspots that TRACK the contestants
+    // (with operator sway and lag) during the show; idle sweep on the title
     var sweep = performance.now() / 4000;
-    ctx.fillStyle = 'rgba(240, 235, 200, 0.045)';
-    [[A.x0, A.y0, sweep], [A.x1, A.y0, -sweep * 1.3 + 2]].forEach(function (s) {
-      var a = 0.9 + Math.sin(s[2]) * 0.55 + (s[0] > DA.W / 2 ? 1.35 : 0);
+    ctx.fillStyle = 'rgba(240, 235, 200, 0.035)';
+    var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
+    var followed = st.players || (st.player ? [st.player] : null);
+    for (var li = 0; li < 4; li++) {
+      var cpos = corners[li], a;
+      if (followed) {
+        var star = followed[li % followed.length];   // corners split between contestants
+        a = Math.atan2(star.y - cpos[1], star.x - cpos[0]) +
+            Math.sin(sweep * 4 + li * 1.7) * 0.09;   // human on the followspot, not a servo
+      } else {
+        a = 0.9 + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li) * 0.55 +
+            (cpos[0] > DA.W / 2 ? 1.35 : 0) + (cpos[1] > DA.H / 2 ? -1.5 : 0);
+      }
       ctx.beginPath();
-      ctx.moveTo(s[0], s[1]);
-      ctx.arc(s[0], s[1], 900, a - 0.14, a + 0.14);
+      ctx.moveTo(cpos[0], cpos[1]);
+      ctx.arc(cpos[0], cpos[1], 900, a - 0.13, a + 0.13);
       ctx.closePath(); ctx.fill();
-    });
+    }
     // wall bevel: a lit inner edge
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 2;
