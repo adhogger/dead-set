@@ -6,6 +6,12 @@
 <title>SLASH TV: The Final Broadcast</title>
 <link rel="icon" type="image/png" href="icon.png">
 <link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SLASH TV">
 <meta property="og:title" content="SLASH TV: The Final Broadcast">
 <meta property="og:description" content="The most-watched — and most-banned — show on Earth. A Smash TV-style twin-stick shooter. Free in your browser — gamepad, keyboard, or touch.">
 <meta property="og:image" content="https://adhogger.github.io/slash-tv/preview.png">
@@ -45,5 +51,11 @@
 <script src="js/leaderboard.js"></script>
 <script src="js/main.js"></script>
 <script src="js/net.js"></script>
+<script>
+// PWA: installable + offline-capable. file:// and unsupported browsers skip quietly.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('sw.js').catch(function () {});
+}
+</script>
 </body>
 </html>

@@ -16,7 +16,7 @@ STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 
 mkdir -p "$STAGE/js"
-cp index.html style.css icon.png "$STAGE/"
+cp index.html style.css icon.png icon-192.png icon-512.png manifest.json sw.js "$STAGE/"
 cp js/*.js "$STAGE/js/"
 
 rm -f "$OUT"
