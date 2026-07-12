@@ -50,7 +50,8 @@
                          t: 60, x: DA.W / 2 + 60, y: DA.H / 2 });
     }
     if (st.room.boss) {
-      var boss = st.room.boss === 'executive' ? DA.makeExecutive() : DA.makeBoss();
+      var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
+                 (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
       if (DA.audio) DA.audio.roar();
@@ -81,7 +82,7 @@
       st.players.push(buddy);
     }
     enterRoom(st, startRoom || DA.START_ROOM, null);
-    if (st.room.ep === 2) st.players.forEach(function (cp) { cp.hearts = DA.MAX_HEARTS; }); // champions start refreshed
+    if (st.room.ep === 2 || st.room.ep === 3) st.players.forEach(function (cp) { cp.hearts = DA.MAX_HEARTS; }); // champions start refreshed
     if (DA.net) DA.net.onHostNewGame(st, startRoom);   // a paired guest takes seat 2
     return st;
   }
@@ -272,20 +273,24 @@
       ctx.beginPath(); ctx.arc(z.x, z.y, z.r * bob, 0, 7); ctx.fill();
     }
   }
-  var endlessKeyHeld = false, ep2KeyHeld = false, synKeyHeld = false, synWasHeld = false;
+  var endlessKeyHeld = false, ep2KeyHeld = false, ep3KeyHeld = false, ep3WasHeld = false,
+      synKeyHeld = false, synWasHeld = false;
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = true;
     if (e.code === 'Digit2') ep2KeyHeld = true;
     if (e.code === 'Digit3') synKeyHeld = true;
+    if (e.code === 'Digit4') ep3KeyHeld = true;
   });
   window.addEventListener('keyup', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = false;
     if (e.code === 'Digit2') ep2KeyHeld = false;
     if (e.code === 'Digit3') synKeyHeld = false;
+    if (e.code === 'Digit4') ep3KeyHeld = false;
   });
 
   function endlessUnlocked() { return load('deadset_ep1') === '1'; }
   function ep2Unlocked() { return load('deadset_ep1') === '1'; }
+  function ep3Unlocked() { return load('deadset_ep2') === '1'; }
   var ep2WasHeld = false;
 
   function drawDebug(ctx) {
@@ -398,13 +403,15 @@
     st.runStamp = Date.now();
     runs.unshift({ s: st.score,
                    m: st.room.endless ? 'ARENA' :
-                      (st.room.ep === 'syn' ? 'SYN' : (st.room.ep === 2 ? 'EP 2' : 'EP 1')),
+                      (st.room.ep === 'syn' ? 'SYN' :
+                       (st.room.ep === 3 ? 'EP 3' : (st.room.ep === 2 ? 'EP 2' : 'EP 1'))),
                    d: st.runStamp });
     if (runs.length > 30) runs.length = 30;
     store('deadset_runs', JSON.stringify(runs));
     if (won) {
       store('deadset_ep1', '1');
       if (st.room.ep === 2) store('deadset_ep2', '1');
+      if (st.room.ep === 3) store('deadset_ep3', '1');
     }
     if (st.room.endless) {
       var bw = parseInt(load('deadset_best_waves') || '0', 10);
@@ -473,6 +480,8 @@
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
       var ep2Held = ep2KeyHeld || DA.input.padButton(2);
       if (ep2Unlocked() && ep2Held && !ep2WasHeld) DA.state = newGame('writers');
+      var ep3Held = ep3KeyHeld || DA.input.padButton(1);
+      if (ep3Unlocked() && ep3Held && !ep3WasHeld) DA.state = newGame('controlbooth');
       var synHeld = synKeyHeld || DA.input.padButton(5);
       var synTap = st.mode === 'title' && DA.input.consumeSynTap && DA.input.consumeSynTap();
       if ((synHeld && !synWasHeld) || synTap) {
@@ -486,6 +495,7 @@
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
       ep2WasHeld = ep2Held;
+      ep3WasHeld = ep3Held;
       updateAttract(dt);
       DA.updateFx(dt);
       return;
@@ -521,10 +531,12 @@
     var boss = findBoss(st);
     if (boss) {
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
+      else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
     }
     DA.updateEnemies(st.enemies, st.players, dt);
     DA.updateBoomers(st, dt);
+    if (DA.updateHazards) DA.updateHazards(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
     DA.resolveCombat(st);
     DA.updateCombo(st, dt);
@@ -692,6 +704,40 @@
       [[w / 2 - 120, h / 2 - 170], [w / 2 + 40, h / 2 + 140]].forEach(function (s) {
         g.strokeRect(s[0], s[1], 130, 46); g.strokeRect(s[0] + 8, s[1] + 8, 114, 30);
       });
+    } else if (type === 'lighting') {           // a rigged lighting grid overhead
+      for (i = 0; i < 10; i++) {
+        x = 70 + (i * 121) % (w - 140);
+        g.beginPath(); g.arc(x, 34, 12, 0, 7); g.stroke();
+        g.beginPath(); g.moveTo(x, 46); g.lineTo(x, 20); g.moveTo(x - 14, 34); g.lineTo(x + 14, 34); g.stroke();
+      }
+    } else if (type === 'catwalk') {            // steel walkway grating
+      for (y = 90; y < h - 60; y += 130) {
+        g.beginPath(); g.moveTo(50, y); g.lineTo(w - 50, y);
+        g.moveTo(50, y + 22); g.lineTo(w - 50, y + 22); g.stroke();
+        for (x = 60; x < w - 60; x += 26) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 22); g.stroke(); }
+      }
+    } else if (type === 'cranebay') {           // rigging track along the ceiling
+      g.beginPath(); g.moveTo(40, 44); g.lineTo(w - 40, 44); g.stroke();
+      for (i = 0; i < 7; i++) {
+        x = 90 + i * ((w - 180) / 6);
+        g.strokeRect(x - 10, 44, 20, 14);
+        g.beginPath(); g.moveTo(x, 58); g.lineTo(x, 90); g.stroke();
+      }
+    } else if (type === 'pyrobay') {            // fuel canisters + hazard stripes
+      for (i = 0; i < 6; i++) {
+        x = 90 + (i * 210) % (w - 180); y = 90 + (i * 173) % (h - 180);
+        g.strokeRect(x - 16, y - 26, 32, 52);
+      }
+      g.save(); g.translate(w - 70, h - 40); g.rotate(-0.4);
+      for (i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i * 14 - 60, -10); g.lineTo(i * 14 - 40, 10); g.stroke(); }
+      g.restore();
+    } else if (type === 'corebay') {            // relay dishes + conduit
+      for (i = 0; i < 4; i++) {
+        x = 120 + i * ((w - 240) / 3); y = 70;
+        g.beginPath(); g.arc(x, y, 26, 3.6, 5.9); g.stroke();
+        g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 40); g.stroke();
+      }
+      g.beginPath(); g.moveTo(60, h - 60); g.bezierCurveTo(w / 3, h - 100, w * 2 / 3, h - 20, w - 60, h - 70); g.stroke();
     } else if (type === 'bossfloor') {          // the star's mark
       g.save(); g.translate(w / 2, h / 2);
       for (i = 0; i < 5; i++) { g.rotate(6.28 / 5); g.beginPath(); g.moveTo(0, -58); g.lineTo(0, -110); g.stroke(); }
@@ -911,6 +957,7 @@
     }
     drawArena(ctx, st);
     DA.drawFxUnder(ctx);
+    if (DA.drawHazards) DA.drawHazards(ctx, st);
     DA.drawPowerups(ctx, st.powerups);
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);
@@ -1028,27 +1075,33 @@
         lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
                      font: 'bold 24px monospace', color: '#c95d63', y: 426 });
       }
+      var yOff = 0;
+      if (ep3Unlocked()) {
+        lines.push({ text: '4 (or 🎮 B/Circle) — EPISODE 3: LIVE FINALE' + (load('deadset_ep3') === '1' ? ' ✓' : ''),
+                     font: 'bold 24px monospace', color: '#2fd7c4', y: 452 });
+        yOff = 26;
+      }
       if (endlessUnlocked()) {
         lines.push({ text: 'E (or 🎮 Y) — ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
-                     font: 'bold 22px monospace', color: '#5bc8d6', y: 462 });
+                     font: 'bold 22px monospace', color: '#5bc8d6', y: 462 + yOff });
       }
       lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
-                    font: 'bold 22px monospace', color: '#b78bff', y: 494 });
+                    font: 'bold 22px monospace', color: '#b78bff', y: 494 + yOff });
       if (DA.lb && DA.lb.today && DA.lb.today.length && DA.lb.todaySeed === synSeed()) {
         var podium = DA.lb.today.slice(0, 3).map(function (s, i) {
           return (i + 1) + '. ' + s.name + ' $' + s.score.toLocaleString('en-US');
         }).join('   ');
-        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: 515 });
+        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: 515 + yOff });
       }
       var best = load('deadset_best');
       if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
-                             font: 'bold 20px monospace', color: '#e8d44d', y: 524 });
-      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 548 });
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: 572 });
+                             font: 'bold 20px monospace', color: '#e8d44d', y: 524 + yOff });
+      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 548 + yOff });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: 572 + yOff });
     lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
-                 font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 });
+                 font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 + yOff });
       if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
-        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 652 });
+        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 652 + yOff });
       }
       drawCenteredScreen(ctx, lines);
       drawAttract(ctx);
@@ -1110,13 +1163,15 @@
         ctx.fillRect(0, 0, DA.W, DA.H);
       }
     } else if (st.mode === 'winner') {
-      var isFinale = st.room.ep === 2;
+      var isSeasonFinale = st.room.ep === 3;
+      var isEp2 = st.room.ep === 2;
+      var headline = isSeasonFinale ? 'THE FINAL BROADCAST' : (isEp2 ? 'SEASON FINALE!' : "THAT'S A WRAP!");
+      var sub = isSeasonFinale ? 'The Algorithm goes dark. Nobody is watching anymore.' :
+                (isEp2 ? 'The Executive is cancelled. The network is yours.' :
+                         'Episode 1 survived — The Producer is done for.');
       var w = [
-        { text: isFinale ? 'SEASON FINALE!' : "THAT'S A WRAP!",
-          font: 'bold 84px monospace', color: '#e8d44d', y: 196 },
-        { text: isFinale ? 'The Executive is cancelled. The network is yours.' :
-                           'Episode 1 survived — The Producer is done for.',
-          font: '24px monospace', color: '#f2f2e9', y: 246 },
+        { text: headline, font: 'bold ' + (isSeasonFinale ? 60 : 84) + 'px monospace', color: '#e8d44d', y: 196 },
+        { text: sub, font: '24px monospace', color: '#f2f2e9', y: 246 },
         { text: 'You take home $' + st.score.toLocaleString('en-US') +
                 (st.newBest ? '  —  NEW BEST!' : ''),
           font: 'bold 28px monospace', color: '#7ee081', y: 288 }
@@ -1125,8 +1180,9 @@
         w.push({ text: '🌍 GLOBAL RANK #' + st.globalRank + " on tonight's episode (#" + st.room.seed + ')',
                  font: 'bold 22px monospace', color: '#b78bff', y: 534 });
       }
-      w.push({ text: isFinale ? 'Thanks for watching SLASH TV — stay tuned for Season 2' :
-                                'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E',
+      w.push({ text: isSeasonFinale ? 'Thanks for watching SLASH TV. That was the whole show.' :
+                     (isEp2 ? 'EPISODE 3: LIVE FINALE UNLOCKED — press 4' :
+                              'EPISODE 2 + ENDLESS ARENA UNLOCKED — press 2 or E'),
                font: 'bold 22px monospace', color: '#5bc8d6', y: 566 });
       w.push({ text: 'PRESS FIRE TO PLAY AGAIN', font: 'bold 26px monospace', color: '#7ee081', y: 598 });
       drawCenteredScreen(ctx, w);

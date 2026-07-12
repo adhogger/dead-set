@@ -66,6 +66,125 @@
     }
     DA.clampToArena(b);
   };
+  // EPISODE 3 BOSS: THE ALGORITHM — no human left to fire. A hovering
+  // camera-drone that predicts where you're running and lasers the line,
+  // while the studio's own hazards keep burning around it.
+  DA.makeAlgorithm = function () {
+    return { id: DA.newId(), type: 'algorithm', isBoss: true, name: 'THE ALGORITHM',
+             x: DA.W / 2, y: 200, r: 36, hp: 460, maxHp: 460, score: 35000, color: '#2fd7c4',
+             wobble: Math.random() * 6.283, driftT: 0,
+             laserPhase: 'idle', laserT: 2.5, laserAngle: 0,
+             ringT: 4, spiralT: 0, spiralA: 0, minionT: 6 };
+  };
+  var ALGO_LASER_LEN = 1100, ALGO_LASER_HALF_WIDTH = 0.05;
+  DA.updateAlgorithm = function (b, st, dt) {
+    var phase = DA.bossPhase(b);
+    var tp = DA.nearestPlayer(st.players || [st.player], b.x, b.y);
+    // erratic hover: drifts toward a fresh random point every couple of seconds
+    b.driftT -= dt;
+    if (b.driftT <= 0) {
+      b.driftT = 1.6 + Math.random() * 1.4;
+      b.tx = DA.rand(180, DA.W - 180); b.ty = DA.rand(120, 340);
+    }
+    b.x += DA.clamp((b.tx || b.x) - b.x, -1, 1) * 70 * dt;
+    b.y += DA.clamp((b.ty || b.y) - b.y, -1, 1) * 70 * dt;
+    b.wobble += dt * 3;
+    DA.clampToArena(b);
+
+    // predictive laser: telegraphs where the target IS HEADING, not where they are
+    b.laserT -= dt;
+    if (b.laserPhase === 'idle' && b.laserT <= 0) {
+      b.laserPhase = 'warn'; b.laserT = phase === 2 ? 0.6 : 0.9;
+      var lead = 0.5;
+      var px = tp.x + (tp.vx || 0) * lead, py = tp.y + (tp.vy || 0) * lead;
+      b.laserAngle = Math.atan2(py - b.y, px - b.x);
+    } else if (b.laserPhase === 'warn' && b.laserT <= 0) {
+      b.laserPhase = 'fire'; b.laserT = 0.35;
+      if (DA.audio) DA.audio.roar();
+    } else if (b.laserPhase === 'fire') {
+      if (b.laserT > 0) {
+        var la = b.laserAngle;
+        var ps = st.players || [st.player];
+        for (var i = 0; i < ps.length; i++) {
+          var pl = ps[i];
+          if (!pl || pl.hearts <= 0 || pl.downed || pl.invuln > 0) continue;
+          var d = Math.sqrt(DA.dist2(b.x, b.y, pl.x, pl.y));
+          if (d > ALGO_LASER_LEN) continue;
+          var a = Math.atan2(pl.y - b.y, pl.x - b.x);
+          var diff = a - la;
+          while (diff > Math.PI) diff -= 6.28318;
+          while (diff < -Math.PI) diff += 6.28318;
+          if (Math.abs(diff) < ALGO_LASER_HALF_WIDTH) {
+            pl.hearts--; pl.invuln = 1.2;
+            if (DA.resetCombo) DA.resetCombo(st);
+            if (DA.onPlayerHurt) DA.onPlayerHurt(st);
+          }
+        }
+      }
+      if (b.laserT <= 0) { b.laserPhase = 'idle'; b.laserT = phase === 2 ? 1.8 : 2.6; }
+    }
+
+    b.ringT -= dt;
+    if (b.ringT <= 0) {
+      b.ringT = phase === 2 ? 3 : 4.5;
+      var n = phase === 2 ? 14 : 9;
+      for (var r = 0; r < n; r++) {
+        var ra = (r / n) * 6.283;
+        DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(ra), Math.sin(ra));
+      }
+    }
+    if (phase === 2) {
+      b.spiralT -= dt;
+      if (b.spiralT <= 0) {
+        b.spiralT = 0.14;
+        b.spiralA += 0.5;
+        DA.fireEnemyBullet(st.enemyBullets, b.x, b.y, Math.cos(b.spiralA), Math.sin(b.spiralA));
+      }
+    }
+    b.minionT -= dt;
+    if (b.minionT <= 0) {
+      b.minionT = phase === 2 ? 6 : 8;
+      DA.spawnAtDoor(st.enemies, 'stalker');
+      if (phase === 2) DA.spawnAtDoor(st.enemies, 'swarmer');
+      if (DA.announce) DA.announce('NO NOTES. JUST MORE EXTRAS.');
+    }
+  };
+  DA.drawAlgorithm = function (ctx, b) {
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.beginPath(); ctx.ellipse(b.x, b.y + 46, b.r * 0.8, b.r * 0.28, 0, 0, 7); ctx.fill();
+    // predictive-laser telegraph / beam, drawn before the drone so it reads as "from" it
+    if (b.laserPhase === 'fire') {
+      ctx.fillStyle = 'rgba(120, 255, 235, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(b.x, b.y);
+      ctx.arc(b.x, b.y, ALGO_LASER_LEN, b.laserAngle - ALGO_LASER_HALF_WIDTH, b.laserAngle + ALGO_LASER_HALF_WIDTH);
+      ctx.closePath(); ctx.fill();
+    } else if (b.laserPhase === 'warn') {
+      ctx.save();
+      ctx.translate(b.x, b.y); ctx.rotate(b.laserAngle);
+      ctx.strokeStyle = 'rgba(120, 255, 235, ' + (0.3 + Math.sin(performance.now() / 50) * 0.25) + ')';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ALGO_LASER_LEN, 0); ctx.stroke();
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.translate(b.x, b.y + Math.sin(b.wobble) * 6);
+    ctx.fillStyle = '#181c22';                        // drone chassis
+    ctx.beginPath(); ctx.ellipse(0, 0, b.r, b.r * 0.72, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(47, 215, 196, 0.6)'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = b.color;                          // the lens — always watching
+    ctx.beginPath(); ctx.arc(0, 0, b.r * 0.42, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0a0a0f';
+    ctx.beginPath(); ctx.arc(0, 0, b.r * 0.18, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(-b.r * 0.08, -b.r * 0.08, b.r * 0.06, 0, 7); ctx.fill();
+    for (var wi = -1; wi <= 1; wi += 2) {              // rotor arms
+      ctx.fillStyle = '#22262e';
+      ctx.fillRect(wi * b.r * 0.75 - 6, -3, 12, 6);
+      ctx.beginPath(); ctx.arc(wi * b.r * 1.1, 0, 8, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  };
   DA.bossPhase = function (b) { return b.hp <= b.maxHp / 2 ? 2 : 1; };
   DA.updateBoss = function (b, st, dt) {
     var phase = DA.bossPhase(b);

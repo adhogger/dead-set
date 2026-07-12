@@ -171,7 +171,11 @@
   DA.drawEnemies = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
-      if (e.isBoss) { if (DA.drawBoss) DA.drawBoss(ctx, e); continue; }
+      if (e.isBoss) {
+        if (e.type === 'algorithm' && DA.drawAlgorithm) DA.drawAlgorithm(ctx, e);
+        else if (DA.drawBoss) DA.drawBoss(ctx, e);
+        continue;
+      }
       if (e.grace > 0) ctx.globalAlpha = 0.45; // emerging from the door, harmless
       else if (e.type === 'stalker' && DA.stalkerFaint(e)) ctx.globalAlpha = 0.18;
       ctx.fillStyle = 'rgba(0,0,0,0.28)';       // grounding shadow

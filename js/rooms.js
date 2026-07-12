@@ -186,6 +186,104 @@
       exits: {},
       endless: true,   // waves are generated forever by DA.endlessWave(n)
       waves: []
+    },
+
+    // ---- EPISODE 3: LIVE FINALE (unlocked by beating Episode 2) ----
+    // The show has run out of monsters, so the studio itself is repurposed
+    // as one: camera cranes sweep the floor, pyro rigs meant for the finale
+    // number fire early. DA.updateHazards/drawHazards (js/hazards.js) run
+    // whenever room.hazard is set, alongside the usual zombie waves.
+    controlbooth: {
+      ep: 3, map: { x: 0, y: 0 },
+      name: 'THE CONTROL BOOTH', floor: '#242830', decor: 'lighting',
+      exits: { E: 'catwalks', S: 'greenscreen' },
+      waves: [
+        { doors: 2, groups: [{ type: 'shambler', count: 100, interval: 1.1, burst: 7 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 1.1, burst: 7 },
+                             { type: 'stalker',  count: 5,  interval: 2.0 }] }
+      ]
+    },
+    catwalks: {
+      ep: 3, map: { x: 1, y: 0 },
+      name: 'THE CATWALKS', floor: '#262424', decor: 'catwalk', hazard: 'crane',
+      exits: { E: 'cranebay', S: 'pyrobay' },
+      waves: [
+        { doors: 2, groups: [{ type: 'shambler', count: 95, interval: 1.1, burst: 7 },
+                             { type: 'swarmer',  count: 30, interval: 1.3, burst: 5 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
+                             { type: 'sprinter', count: 16, interval: 1.4, speed: 175 }] }
+      ]
+    },
+    greenscreen: {
+      ep: 3, map: { x: 0, y: 1 },
+      name: 'THE GREEN SCREEN STAGE', floor: '#1e3226', decor: 'stage',
+      exits: { E: 'pyrobay' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
+                             { type: 'swarmer',  count: 35, interval: 1.3, burst: 5 },
+                             { type: 'boomer',   count: 3,  interval: 6 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 130, interval: 1.1, burst: 7 },
+                             { type: 'stalker',  count: 5,  interval: 1.9 },
+                             { type: 'boomer',   count: 4,  interval: 5 }] }
+      ]
+    },
+    cranebay: {
+      ep: 3, map: { x: 2, y: 0 },
+      name: 'THE CRANE BAY', floor: '#2c2620', decor: 'cranebay', hazard: 'crane',
+      exits: { E: 'corebay', S: 'lastlook' },
+      waves: [
+        { doors: 2, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
+                             { type: 'brute',    count: 5,  interval: 6 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 130, interval: 1.1, burst: 7 },
+                             { type: 'brute',    count: 6,  interval: 5 },
+                             { type: 'sprinter', count: 18, interval: 1.3, speed: 180 }] }
+      ]
+    },
+    pyrobay: {
+      ep: 3, map: { x: 1, y: 1 },
+      name: 'THE PYROTECHNICS BAY', floor: '#301e1e', decor: 'pyrobay', hazard: 'pyro',
+      exits: { E: 'lastlook' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 110, interval: 1.1, burst: 7 },
+                             { type: 'boomer',   count: 5,  interval: 5 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 125, interval: 1.1, burst: 7 },
+                             { type: 'boomer',   count: 6,  interval: 4.5 },
+                             { type: 'swarmer',  count: 30, interval: 1.2, burst: 5 }] }
+      ]
+    },
+    corebay: {
+      ep: 3, map: { x: 3, y: 0 },
+      name: 'THE BROADCAST RELAY', floor: '#20262e', decor: 'corebay', hazard: 'crane_pyro',
+      exits: { S: 'broadcastcore' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 1.1, burst: 7 },
+                             { type: 'stalker',  count: 6,  interval: 1.7 },
+                             { type: 'sprinter', count: 18, interval: 1.2, speed: 185 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 1.05, burst: 7 },
+                             { type: 'brute',    count: 5,  interval: 5 },
+                             { type: 'stalker',  count: 7,  interval: 1.5 }] }
+      ]
+    },
+    lastlook: {
+      ep: 3, map: { x: 2, y: 1 },
+      name: 'LAST LOOKS', floor: '#2a2430', decor: 'monitors', hazard: 'pyro',
+      exits: { E: 'broadcastcore' },
+      waves: [
+        { doors: 3, groups: [{ type: 'shambler', count: 115, interval: 1.1, burst: 7 },
+                             { type: 'swarmer',  count: 35, interval: 1.2, burst: 5 },
+                             { type: 'boomer',   count: 4,  interval: 5 }] },
+        { doors: 3, groups: [{ type: 'shambler', count: 135, interval: 1.05, burst: 7 },
+                             { type: 'brute',    count: 5,  interval: 5 },
+                             { type: 'sprinter', count: 18, interval: 1.2, speed: 185 },
+                             { type: 'boomer',   count: 5,  interval: 5 }] }
+      ]
+    },
+    broadcastcore: {
+      ep: 3, map: { x: 3, y: 1 },
+      name: 'THE BROADCAST CORE', floor: '#1c2828', decor: 'bossfloor', hazard: 'crane_pyro',
+      exits: {},
+      boss: 'algorithm',
+      waves: []
     }
   };
 

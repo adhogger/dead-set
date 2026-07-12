@@ -10,6 +10,7 @@
 <script src="js/enemies.js"></script>
 <script src="js/player.js"></script>
 <script src="js/rooms.js"></script>
+<script src="js/hazards.js"></script>
 <script src="js/combat.js"></script>
 <script src="js/boss.js"></script>
 <script src="js/powerups.js"></script>
@@ -371,6 +372,7 @@ test('room graphs: every exit is valid and both bosses are reachable', function 
   }
   assert(bfs(DA.START_ROOM).stage === true, 'Episode 1 boss reachable');
   assert(bfs('writers').suite === true, 'Episode 2 boss reachable');
+  assert(bfs('controlbooth').broadcastcore === true, 'Episode 3 boss reachable');
 });
 test('stalkers phase faint and sprint while faint', function () {
   var visible = DA.makeEnemy('stalker', 200, 360); visible.phaseT = 0.5;
@@ -399,6 +401,72 @@ test('The Executive teleports, fires fans, and spirals in phase 2', function () 
   b.spiralT = 0.01; b.fanT = 999;
   DA.updateExecutive(b, st, 0.02);
   assert(st.enemyBullets.length >= 1, 'spiral stream in phase 2');
+});
+test('The Algorithm predicts, lasers, rings, and spirals in phase 2', function () {
+  var b = DA.makeAlgorithm();
+  assert(b.name === 'THE ALGORITHM' && b.maxHp > 380, 'tougher than the Executive');
+  var st = { player: DA.makePlayer(), enemies: [b], enemyBullets: [], bullets: [] };
+  st.player.x = b.x + 300; st.player.y = b.y; st.player.vx = 0; st.player.vy = 120;
+  b.laserPhase = 'idle'; b.laserT = 0.01; b.ringT = 999; b.minionT = 999;
+  DA.updateAlgorithm(b, st, 0.02);                 // idle -> warn: telegraph aims at predicted spot
+  assert(b.laserPhase === 'warn', 'laser telegraphs before firing');
+  var leadAngle = Math.atan2((st.player.y + 60) - b.y, st.player.x - b.x);
+  assert(Math.abs(b.laserAngle - leadAngle) < 0.05, 'aims ahead of the target, not at it');
+  b.laserT = 0.01;
+  DA.updateAlgorithm(b, st, 0.02);                 // warn -> fire
+  assert(b.laserPhase === 'fire', 'laser fires after the telegraph');
+  st.player.x = b.x + Math.cos(b.laserAngle) * 200; // stand in the beam
+  st.player.y = b.y + Math.sin(b.laserAngle) * 200;
+  st.player.invuln = 0;
+  var hearts0 = st.player.hearts;
+  DA.updateAlgorithm(b, st, 0.02);
+  assert(st.player.hearts === hearts0 - 1, 'the beam hurts a target standing in it');
+  b.ringT = 0.01; b.laserPhase = 'idle'; b.laserT = 999;
+  st.enemyBullets.length = 0;
+  DA.updateAlgorithm(b, st, 0.02);
+  assert(st.enemyBullets.length >= 9, 'radial ring fired, got ' + st.enemyBullets.length);
+  b.hp = b.maxHp * 0.3;                            // phase 2
+  st.enemyBullets.length = 0;
+  b.spiralT = 0.01; b.ringT = 999; b.laserT = 999;
+  DA.updateAlgorithm(b, st, 0.02);
+  assert(st.enemyBullets.length >= 1, 'spiral stream in phase 2');
+});
+test('room hazards: crane beam warns then damages, pyro warns then burns', function () {
+  var st = { player: DA.makePlayer(), players: null,
+             roomId: 'test_crane_room', room: { hazard: 'crane' } };
+  st.players = [st.player];
+  var hz = DA.hazardState(st);
+  assert(hz.cranes.length === 2 && hz.pyros.length === 0, 'crane-only room gets no pyro rigs');
+  var c = hz.cranes[0];
+  st.player.x = c.x + 400; st.player.y = c.y; st.player.invuln = 0;
+  c.phase = 'idle'; c.phaseT = 0.01; c.angle = 0; c.angVel = 0;
+  DA.updateHazards(st, 0.02);
+  assert(c.phase === 'warn', 'crane telegraphs first');
+  var hearts0 = st.player.hearts;
+  DA.updateHazards(st, 0.02);
+  assert(c.phase === 'warn' || c.phase === 'fire', 'still safe mid-telegraph');
+  assert(st.player.hearts === hearts0, 'no damage during the warning');
+  c.phaseT = 0.01;
+  DA.updateHazards(st, 0.02);                      // warn -> fire (angle 0, player due east: in the beam)
+  assert(c.phase === 'fire', 'transitions to fire');
+  DA.updateHazards(st, 0.02);                      // next tick: the live beam actually hits
+  assert(st.player.hearts === hearts0 - 1, 'the beam hurts once it fires');
+
+  var st2 = { player: DA.makePlayer(), roomId: 'test_pyro_room', room: { hazard: 'pyro' } };
+  st2.players = [st2.player];
+  var hz2 = DA.hazardState(st2);
+  assert(hz2.pyros.length === 5 && hz2.cranes.length === 0, 'pyro-only room gets no cranes');
+  var p = hz2.pyros[0];
+  st2.player.x = p.x; st2.player.y = p.y; st2.player.invuln = 0;
+  p.phase = 'idle'; p.phaseT = 0.01;
+  DA.updateHazards(st2, 0.02);
+  assert(p.phase === 'warn', 'pyro warns before it burns');
+  var hearts1 = st2.player.hearts;
+  p.phaseT = 0.01;
+  DA.updateHazards(st2, 0.02);                     // warn -> burn
+  assert(p.phase === 'burn', 'transitions to burn');
+  DA.updateHazards(st2, 0.02);                     // next tick: it's actually alight now
+  assert(st2.player.hearts === hearts1 - 1, 'standing on it while it burns hurts');
 });
 test('boss fires radial bursts and has phases', function () {
   var b = DA.makeBoss();
