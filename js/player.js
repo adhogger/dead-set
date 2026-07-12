@@ -35,6 +35,7 @@
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
     if (p.hurtFlashT > 0) p.hurtFlashT -= dt;
+    p.walkT = (p.walkT || 0) + Math.sqrt(p.vx * p.vx + p.vy * p.vy) * dt * 0.06;
     var moving = Math.abs(p.vx) > 20 || Math.abs(p.vy) > 20;
     p.stepT = (p.stepT || 0) - dt;
     if (moving && !p.downed && p.stepT <= 0) {
@@ -88,6 +89,18 @@
       ctx.globalAlpha = 1;
       return;
     }
+    var mvA = Math.atan2(p.vy, p.vx);                // feet track MOVEMENT, torso tracks aim
+    if (p.vx * p.vx + p.vy * p.vy > 400) {
+      var step = Math.sin(p.walkT || 0);
+      ctx.fillStyle = '#2c2c34';
+      for (var fs = -1; fs <= 1; fs += 2) {
+        ctx.beginPath();
+        ctx.ellipse(-Math.sin(mvA) * fs * p.r * 0.45 + Math.cos(mvA) * step * fs * 5,
+                    Math.cos(mvA) * fs * p.r * 0.45 + Math.sin(mvA) * step * fs * 5 + p.r * 0.55,
+                    4.5, 3, mvA, 0, 7);
+        ctx.fill();
+      }
+    }
     ctx.rotate(Math.atan2(p.aimY, p.aimX));
     ctx.fillStyle = p.remote ? '#f2e2b0' :           // guest seats wear gold-tinted white
                     (p.bot ? '#a8c8d8' : '#f2f2e9'); // body (CAM-BOT runs brushed steel)
@@ -107,8 +120,22 @@
     }
     ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
+    if (!p.bot) {
+      ctx.fillStyle = '#e0b08c';                     // hands gripping the gun
+      ctx.beginPath(); ctx.arc(p.r * 0.7, -3.5, 3, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.r * 0.7, 3.5, 3, 0, 7); ctx.fill();
+    }
     ctx.fillStyle = '#333';                          // gun
     ctx.fillRect(p.r - 3, -2.5, 11, 5);
+    if (!p.bot) {                                    // head: hair at the back, face forward
+      var hr = p.r * 0.52;
+      ctx.fillStyle = '#e0b08c';
+      ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.fill();
+      ctx.fillStyle = p.remote ? '#7a4f2a' : '#3a2c20';
+      ctx.beginPath(); ctx.arc(0, 0, hr + 0.5, 1.9, 4.4); ctx.lineTo(0, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.stroke();
+    }
     var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // muzzle flash right after a shot
     if (p.firing && p.fireCooldown > g.rate - 0.05) {
       ctx.fillStyle = 'rgba(255, 240, 150, 0.4)';

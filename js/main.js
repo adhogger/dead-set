@@ -838,6 +838,18 @@
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 2;
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';      // wall panel seams
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (var wx = A.x0 + 80; wx < A.x1; wx += 80) {
+      ctx.moveTo(wx, 0); ctx.lineTo(wx, A.y0);
+      ctx.moveTo(wx, A.y1); ctx.lineTo(wx, DA.H);
+    }
+    for (var wy = A.y0 + 80; wy < A.y1; wy += 80) {
+      ctx.moveTo(0, wy); ctx.lineTo(A.x0, wy);
+      ctx.moveTo(A.x1, wy); ctx.lineTo(DA.W, wy);
+    }
+    ctx.stroke();
     var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
@@ -847,6 +859,18 @@
         (isSpawning ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
       if (d.dir === 'N' || d.dir === 'S') ctx.fillRect(d.x - 50, d.y - 20, 100, 40);
       else ctx.fillRect(d.x - 20, d.y - 50, 40, 100);
+      // warning-striped frame posts flanking every gap — studio safety theatre
+      var posts = (d.dir === 'N' || d.dir === 'S') ?
+        [[d.x - 58, d.y - 20, 8, 40, false], [d.x + 50, d.y - 20, 8, 40, false]] :
+        [[d.x - 20, d.y - 58, 40, 8, true], [d.x - 20, d.y + 50, 40, 8, true]];
+      for (var pf = 0; pf < 2; pf++) {
+        var P = posts[pf];
+        ctx.fillStyle = '#8a7530';
+        ctx.fillRect(P[0], P[1], P[2], P[3]);
+        ctx.fillStyle = '#1c1c22';
+        if (P[4]) { ctx.fillRect(P[0] + 8, P[1], 8, P[3]); ctx.fillRect(P[0] + 24, P[1], 8, P[3]); }
+        else { ctx.fillRect(P[0], P[1] + 8, P[2], 8); ctx.fillRect(P[0], P[1] + 24, P[2], 8); }
+      }
       if (isExit) {
         ctx.fillStyle = '#7ee081';
         ctx.font = 'bold 17px monospace';

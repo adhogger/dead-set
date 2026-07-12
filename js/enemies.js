@@ -202,6 +202,9 @@
       if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // chain reaction!
     }
   };
+  // darker limb/head tone per type — hand-picked so no per-frame color math
+  var SKIN = { shambler: '#54903f', sprinter: '#a8434c', swarmer: '#3f97a5',
+               brute: '#6e4585', boomer: '#b5601f', stalker: '#584a80', spitter: '#87962c' };
   DA.drawEnemies = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
@@ -212,28 +215,81 @@
       }
       if (e.grace > 0) ctx.globalAlpha = 0.45; // emerging from the door, harmless
       else if (e.type === 'stalker' && DA.stalkerFaint(e)) ctx.globalAlpha = 0.18;
-      ctx.fillStyle = 'rgba(0,0,0,0.28)';       // grounding shadow
+      var flash = e.hitFlash > 0;
+      var skin = flash ? '#ffffff' : (SKIN[e.type] || e.color);
+      var h = e.heading != null ? e.heading : 0;      // face where it walks (bestiary: face right)
+      var ch = Math.cos(h), sh = Math.sin(h);
+      var swing = Math.sin(e.wobble * 2);             // walk cycle drives arms + bob
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';             // grounding shadow
       ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
-      var br = e.r * (1 + Math.sin(e.wobble * 2) * 0.06); // shuffling bob
-      if (e.elite) {                            // gold champion ring, always pulsing
+      var br = e.r * (1 + swing * 0.06);              // shuffling bob
+      if (e.elite) {                                  // gold champion ring, always pulsing
         ctx.strokeStyle = 'rgba(232, 212, 77, ' + (0.55 + Math.sin(performance.now() / 150) * 0.25).toFixed(3) + ')';
         ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(e.x, e.y, br + 5, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(e.x, e.y, br + 6, 0, 7); ctx.stroke();
       }
-      ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : (lit ? '#fff3b0' : e.color); // fuse lit: strobe warning; hitFlash: fresh damage
+      if (e.type !== 'swarmer') {                     // ARMS: the classic zombie reach
+        var back = e.type === 'sprinter';             // sprinters pump their arms behind
+        var reach = back ? e.r * 1.1 : e.r * 1.6;
+        ctx.strokeStyle = skin;
+        ctx.lineWidth = Math.max(3, e.r * 0.3);
+        ctx.lineCap = 'round';
+        for (var s = -1; s <= 1; s += 2) {
+          var sx = e.x + Math.cos(h + s * 1.5) * e.r * 0.75;
+          var sy = e.y + Math.sin(h + s * 1.5) * e.r * 0.75;
+          var armA = back ? h + Math.PI + s * 0.5 : h + s * 0.3 + swing * 0.25 * s;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + Math.cos(armA) * reach * (1 + swing * 0.12 * s),
+                     sy + Math.sin(armA) * reach * (1 + swing * 0.12 * s));
+          ctx.stroke();
+        }
+      }
+      if (e.type === 'brute') {                       // slabs of shoulder either side
+        ctx.fillStyle = skin;
+        for (var bs = -1; bs <= 1; bs += 2) {
+          ctx.beginPath();
+          ctx.arc(e.x + Math.cos(h + bs * 1.35) * e.r * 0.85,
+                  e.y + Math.sin(h + bs * 1.35) * e.r * 0.85, e.r * 0.42, 0, 7);
+          ctx.fill();
+        }
+      }
+      if (e.type === 'stalker') {                     // wisps trailing off the back
+        ctx.fillStyle = skin;
+        for (var w = 1; w <= 2; w++) {
+          ctx.globalAlpha *= 0.55;
+          ctx.beginPath();
+          ctx.arc(e.x - ch * e.r * 0.7 * w, e.y - sh * e.r * 0.7 * w, e.r * (1 - w * 0.3), 0, 7);
+          ctx.fill();
+        }
+        ctx.globalAlpha = e.grace > 0 ? 0.45 : (DA.stalkerFaint(e) ? 0.18 : 1);
+      }
+      ctx.fillStyle = flash ? '#ffffff' : (lit ? '#fff3b0' : e.color); // body (fuse lit: strobe warning)
       ctx.beginPath(); ctx.arc(e.x, e.y, br, 0, 7); ctx.fill();
-      ctx.strokeStyle = e.elite ? '#e8d44d' : 'rgba(0,0,0,0.35)';     // body outline
+      ctx.strokeStyle = e.elite ? '#e8d44d' : 'rgba(0,0,0,0.35)';
       ctx.lineWidth = 2;
       ctx.stroke();
-      ctx.fillStyle = '#1a1a1a'; // dead eyes, scaled to body size
-      var eye = e.r * 0.28, off = e.r * 0.38;
-      ctx.fillRect(e.x - off - eye / 2, e.y - e.r * 0.25, eye, eye);
-      ctx.fillRect(e.x + off - eye / 2, e.y - e.r * 0.25, eye, eye);
-      if (e.type === 'spitter') {              // mouth bulges while a glob winds up
+      if (e.type === 'boomer') {                      // bloated belly, where the fuse strobes
+        ctx.fillStyle = flash ? '#ffffff' : (lit ? '#fff3b0' : '#f0a75e');
+        ctx.beginPath(); ctx.arc(e.x - ch * e.r * 0.15, e.y - sh * e.r * 0.15 + e.r * 0.18, e.r * 0.55, 0, 7); ctx.fill();
+      }
+      var hr = e.type === 'brute' ? e.r * 0.4 : e.r * 0.55;   // head, leaning toward prey
+      var hx = e.x + ch * e.r * 0.5, hy = e.y + sh * e.r * 0.5;
+      ctx.fillStyle = skin;
+      ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.fillStyle = '#12120e';                      // dead eyes on the head, facing forward
+      var eye = Math.max(2, hr * 0.34);
+      var px = -sh, py = ch;                          // perpendicular to heading
+      ctx.fillRect(hx + ch * hr * 0.35 + px * hr * 0.45 - eye / 2, hy + sh * hr * 0.35 + py * hr * 0.45 - eye / 2, eye, eye);
+      ctx.fillRect(hx + ch * hr * 0.35 - px * hr * 0.45 - eye / 2, hy + sh * hr * 0.35 - py * hr * 0.45 - eye / 2, eye, eye);
+      if (e.type === 'spitter') {                     // distended jaw bulges while a glob winds up
         var wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
         ctx.fillStyle = wind > 0 ? '#b8d44a' : '#2a2e18';
-        ctx.beginPath(); ctx.arc(e.x, e.y + e.r * 0.32, e.r * (0.2 + wind * 0.32), 0, 7); ctx.fill();
+        ctx.beginPath();
+        ctx.arc(hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), 0, 7);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
     }
