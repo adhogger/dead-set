@@ -42,7 +42,7 @@
     if (DA.audio) DA.audio.roar();
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
-      if (e === exclude || e.isBoss) continue;
+      if (!e || e === exclude || e.isBoss) continue; // chain-blasts shrink the list mid-loop
       if (DA.dist2(x, y, e.x, e.y) >= radius * radius) continue;
       e.hp -= dmg;
       e.hitFlash = 0.12;
