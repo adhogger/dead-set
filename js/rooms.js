@@ -328,9 +328,13 @@
   function startWave(wm) {
     var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
     wm.activeDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
-    var coop = DA.state && DA.state.players && DA.state.players.length > 1 ? 1.4 : 1;
+    // co-op: two guns double the clear rate, so the show sends a bigger cast
+    // AND feeds them through the doors faster
+    var coop = DA.state && DA.state.players && DA.state.players.length > 1;
+    var countMult = coop ? 1.8 : 1, paceMult = coop ? 0.8 : 1;
     wm.spawners = wave.groups.map(function (g) {
-      return { type: g.type, left: Math.round(g.count * coop), interval: g.interval, speed: g.speed,
+      return { type: g.type, left: Math.round(g.count * countMult),
+               interval: g.interval * paceMult, speed: g.speed,
                burst: g.burst || 1, burstLeft: 0, burstDoor: null, timer: 0.5 };
     });
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
