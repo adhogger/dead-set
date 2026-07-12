@@ -691,6 +691,16 @@
     }
     if (boss && boss.hp <= 0 && !boss.dying) startBossDeath(st, boss);
     if (boss && boss.dying) updateBossDeath(st, boss, dt);
+    // Act 5: during the finale fight the presenter's confession drips out in
+    // order, one line every few seconds — no audience voice left, just him
+    if (boss && !boss.dying && st.room.ep === 3 && st.room.boss && DA.presenterQuip) {
+      st.act5T = (st.act5T == null ? 6 : st.act5T) - dt;
+      if (st.act5T <= 0) {
+        st.act5T = 9;
+        var conf = DA.presenterQuip(st);
+        if (conf) DA.announce(conf);
+      }
+    }
     DA.updateEnemies(st.enemies, st.players, dt, st.enemyBullets);
     DA.updateBoomers(st, dt);
     if (DA.updateHazards) DA.updateHazards(st, dt);
@@ -746,7 +756,10 @@
           if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
         });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
-        if (DA.presenterQuip) DA.announce(DA.presenterQuip());
+        if (DA.presenterQuip) {
+          var quip = DA.presenterQuip(st);
+          if (quip) DA.announce(quip);
+        }
       }
       checkExits(st);
     }
@@ -1529,7 +1542,7 @@
       var isSeasonFinale = st.room.ep === 3;
       var isEp2 = st.room.ep === 2;
       var headline = isSeasonFinale ? 'THE FINAL BROADCAST' : (isEp2 ? 'SEASON FINALE!' : "THAT'S A WRAP!");
-      var sub = isSeasonFinale ? 'The Algorithm goes dark. Nobody is watching anymore.' :
+      var sub = isSeasonFinale ? '"Ladies and gentlemen... this concludes our final broadcast." — static — nothing.' :
                 (isEp2 ? 'The Executive is cancelled. The network is yours.' :
                          'Episode 1 survived — The Producer is done for.');
       var winHi = highlightStat(st);

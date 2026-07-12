@@ -1,57 +1,99 @@
 (function () {
-  // The presenter. Tone: Black Mirror / Banksy / Monkey Dust — bitter,
-  // satirical, slightly gritty. One fires every 25 kills.
-  var QUIPS = [
-    'THE SPONSORS LOVE YOU. FOR NOW.',
-    'RATINGS UP 3%. KEEP BLEEDING.',
-    'THE AUDIENCE VOTED FOR MORE.',
-    'SOMEONE JUST MUTED THEIR CONSCIENCE.',
-    'THIS SEGMENT BROUGHT TO YOU BY GRUEL™',
-    'THE COMPLIANCE DEPARTMENT HAS LEFT.',
-    'YOUR FAMILY GETS 10% OF NOTHING.',
-    'BILLIONS WATCHING. NOBODY CALLING FOR HELP.',
-    'LEGAL SAYS THIS IS ALL FINE.*',
-    'THAT ONE HAD A NAME BADGE.',
-    'MERCH IS SELLING BEAUTIFULLY.',
-    'THE ALGORITHM WANTS MORE CLOSE-UPS.',
-    "DON'T WORRY. NOBODY REMEMBERS SEASON 9.",
-    'VIEWERS FIND YOUR SUFFERING RELATABLE.',
-    'WE EDITED OUT YOUR SCREAMING. TOO REAL.',
-    'FOCUS GROUPS PREFER YOU DESPERATE.',
-    "EVERY ZOMBIE WAS SOMEONE'S CO-WORKER.",
-    'THE CROWD GOES MILD.',
-    'YOUR CONTRACT COVERS NONE OF THIS.',
-    'SMILE FOR CAMERA THREE.',
-    'THE PRIZE MONEY IS TECHNICALLY REAL.',
-    'HR WOULD LIKE A WORD. HR IS DEAD.',
-    'THIS IS WHAT YOU VOTED FOR.',
-    'ANOTHER AD-FREE MASSACRE, VIEWERS.',
-    "KIDS: DON'T TRY THIS. OR DO. WE NEED A SPIN-OFF.",
-    'CATERING WAS THE FIRST TO GO.',
-    'THE NETWORK THANKS YOU FOR YOUR SACRIFICE.',
-    '80% OF VIEWERS THINK THIS IS SCRIPTED.',
-    'YOUR PAIN IS CHARTING IN TWELVE COUNTRIES.',
-    'SOMEWHERE, AN EXECUTIVE JUST SMILED.',
-    'WE SOLD YOUR SCREAM AS A RINGTONE.',
-    'THE CENSORS GAVE UP YEARS AGO.',
-    'NOSTALGIA SPIKE: PEOPLE MISS SEASON 1.',
-    'THE INSURANCE LAPSED MID-EPISODE.',
-    'THE CLEANUP CREW SAYS SLOW DOWN.',
-    'THAT WAS AN UNPAID INTERN.',
-    "TONIGHT'S MORAL: THERE ISN'T ONE.",
-    'VIEWER DISCRETION WAS NEVER ADVISED.',
-    "YOU'RE TRENDING. SO IS YOUR OBITUARY.",
-    'THE MONSTERS HAVE A UNION NOW.',
-    'PLEASE SCREAM TOWARD THE BOOM MIC.',
-    "HISTORY WILL CALL THIS 'CONTENT'.",
-    'THE PRODUCERS FEEL NOTHING.',
-    'SEASON 13 WAS BANNED IN 40 COUNTRIES. THIS IS WORSE.',
-    'THEY CANCELLED THE NEWS FOR THIS.',
-    'YOUR HEART RATE IS OUR TICKER TAPE.',
-    'EVERY DEATH RESETS THE COMPLAINTS LINE.',
-    "IT'S NOT VIOLENCE. IT'S HERITAGE.",
-    'STAY TUNED. YOU HAVE NO CHOICE.'
+  // The presenter has an ARC. Twelve years of selling murder as light
+  // entertainment, and tonight is the first episode he can't control:
+  //   Act 1 (Ep 1)          — the professional. Polished, amoral, selling.
+  //   Act 2 (Ep 2)          — tiny cracks. Improvising, still smiling.
+  //   Act 3 (Ep 2 boss +    — losing control. Talking to the control room
+  //          early Ep 3)      more than the audience.
+  //   Act 4 (late Ep 3)     — the broadcast collapses. Narrating his own fear.
+  //   Act 5 (the finale)    — no audience voice left. An ordered confession,
+  //                           dripped line by line during the Algorithm fight.
+  // Tone: Black Mirror / Banksy / Monkey Dust. He jokes about TELEVISION,
+  // not monsters — people built this. Executives. Marketing. Algorithms.
+  var ACT1 = [
+    'GOOD EVENING, HUMANITY. WE CHECKED OUR MORALS AT RECEPTION. AGAIN.',
+    'OUR LEGAL DEPARTMENT HAS OFFICIALLY STOPPED ANSWERING THE PHONE.',
+    'EVERY SCREAM YOU HEAR HAS BEEN PROFESSIONALLY MIKED.',
+    'THE AUDIENCE WANTED AUTHENTICITY. WE MAY HAVE OVERDELIVERED.',
+    'SMILE FOR CAMERA THREE. YOUR OBITUARY MIGHT USE THE FOOTAGE.',
+    'SOMEWHERE, A SHAREHOLDER IS CALLING THIS A SUCCESS.',
+    'THE BLOOD IS REAL. THE SMILES ARE CONTRACTUAL.',
+    "IF THIS FEELS UNFAIR — CONGRATULATIONS. YOU'VE UNDERSTOOD THE FORMAT.",
+    'THIS IS WHAT HAPPENS WHEN QUARTERLY PROFITS BECOME A RELIGION.',
+    'FOCUS GROUPS AGREED THAT EMPATHY TESTED POORLY WITH OUR CORE DEMOGRAPHIC.',
+    'ETHICS WERE REMOVED AFTER SEASON FOUR TO IMPROVE PACING.',
+    'EVERY DEATH TONIGHT HAS BEEN OPTIMISED FOR VIEWER ENGAGEMENT.',
+    'THE EXECUTIVES ARE WATCHING FROM A SECURE BUNKER. NATURALLY.',
+    'THE CREW REQUESTED HAZARD PAY. WE GAVE THEM COMMEMORATIVE MUGS.',
+    "REMEMBER — IF YOU'RE STILL ALIVE, YOU'RE TECHNICALLY UNDERPERFORMING.",
+    "TONIGHT'S SUFFERING IS SPONSORED BY RECORD-BREAKING AUDIENCE RETENTION.",
+    'OUR ADVERTISERS LEFT YEARS AGO. FORTUNATELY, HUMAN CURIOSITY IS FREE.',
+    'NOTHING BOOSTS VIEWING FIGURES QUITE LIKE IRREVERSIBLE MISTAKES.',
+    "WE ASKED THE AI TO MAXIMISE RATINGS. IT MISUNDERSTOOD THE WORD 'LIMIT'.",
+    'YOUR PANIC IS BEING TRANSLATED LIVE INTO SEVENTEEN LANGUAGES.'
   ];
+  var ACT2 = [
+    "WELL... THAT WASN'T SCHEDULED.",
+    'CONTROL ASSURES ME EVERYTHING REMAINS UNDER... ACCEPTABLE LEVELS.',
+    'ONE MOMENT — APPARENTLY OUR AI HAS BECOME CREATIVELY INDEPENDENT.',
+    'INTERESTING. CAMERA TWELVE HAS GONE OFFLINE.',
+    'WE APPEAR TO BE MISSING SEVERAL MEMBERS OF OUR PRODUCTION CREW.',
+    "NO NEED FOR ALARM. WE'VE PREPARED FOR ALMOST EVERY EVENTUALITY.",
+    '...ALMOST.',
+    'THE AI DIRECTOR ASSURES US EVERYTHING IS PROCEEDING CATASTROPHICALLY.',
+    "THAT WASN'T A SCRIPTED EXPLOSION... BUT WE'LL ABSOLUTELY PRETEND IT WAS.",
+    'EVERY MONSTER REPRESENTS YEARS OF INNOVATION AND ONE CATASTROPHIC OVERSIGHT.',
+    'THIS EPISODE HAS EXCEEDED OUR PROJECTED CASUALTY TARGETS. CONGRATULATIONS, EVERYONE.',
+    'SOMEWHERE IN THIS BUILDING IS AN EMERGENCY EXIT. IT TESTED POORLY WITH AUDIENCES.'
+  ];
+  var ACT3 = [
+    'CONTROL... WHO AUTHORISED OPENING SECTOR NINE?',
+    "THAT CREATURE WASN'T CLEARED FOR BROADCAST.",
+    "...THAT'S IMPOSSIBLE.",
+    'WHY ARE CONTAINMENT DOORS OPENING BY THEMSELVES?',
+    'CAMERA FIVE... STOP FILMING THAT.',
+    'DIRECTOR? ...DIRECTOR?',
+    '...WHAT AN EXCITING TWIST FOR OUR VIEWERS.',
+    "THE RATINGS NOW TRACK THE BODY COUNT EXACTLY. MARKETING CALLS THAT 'BRAND CONSISTENCY'."
+  ];
+  var ACT4 = [
+    "CONTROL ISN'T ANSWERING.",
+    'THERE SHOULD STILL BE SAFETY TEAMS.',
+    'WHERE IS EVERYONE?',
+    'SOMEONE IS SUPPOSED TO STOP THIS.',
+    '...ANYONE?',
+    "THE NETWORK IS DYING TONIGHT. YOU'RE JUST DOING IT MORE PUBLICLY.",
+    "IF CIVILISATION SURVIVES THIS BROADCAST, WE'D APPRECIATE A FAVOURABLE REVIEW."
+  ];
+  // Act 5 is a SCRIPT, not a pool: dripped in order during the finale fight.
+  var ACT5 = [
+    'WE THOUGHT PEOPLE WANTED MONSTERS.',
+    'IT TURNED OUT THEY WANTED US.',
+    'I USED TO TELL CONTESTANTS THIS WAS JUST TELEVISION.',
+    '...I STOPPED BELIEVING THAT YEARS AGO.',
+    'WE KEPT ASKING HOW FAR WE COULD PUSH PEOPLE.',
+    "WE NEVER ASKED HOW FAR WE'D PUSH OURSELVES.",
+    'THE FUNNY THING ABOUT SPECTACLES...',
+    '...IS EVENTUALLY THE FIRE REACHES THE STAGE.',
+    "IF YOU'RE HEARING THIS...",
+    "...YOU'RE NO LONGER THE CONTESTANT."
+  ];
+  var ACTS = [null, ACT1, ACT2, ACT3, ACT4, ACT5];
+
+  // Which act is the show in? Follows the campaign's actual structure.
+  DA.presenterAct = function (st) {
+    var room = st && st.room;
+    if (!room) return 1;
+    var ep = room.ep || 1;
+    if (ep === 1) return 1;
+    if (ep === 2) return room.boss ? 3 : 2;
+    if (ep === 3) {
+      if (room.boss) return 5;
+      var depth = room.map ? room.map.x + room.map.y : 0;
+      return depth >= 3 ? 4 : 3;
+    }
+    return 1;                       // Syndication/Endless: the show at its confident best
+  };
 
   DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], shake: 0 };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
@@ -227,8 +269,18 @@
     ctx.globalAlpha = 1;
   };
 
-  DA.presenterQuip = function () {
-    return QUIPS[Math.floor(Math.random() * QUIPS.length)];
+  // Act 1-4 draw at random from the act's pool; Act 5 delivers its confession
+  // in order, one line per call, then falls silent.
+  DA.presenterQuip = function (st) {
+    var act = DA.presenterAct(st);
+    if (act === 5) {
+      if (!st) return ACT5[0];
+      st.act5Idx = st.act5Idx || 0;
+      if (st.act5Idx >= ACT5.length) return null;   // he has nothing left to say
+      return ACT5[st.act5Idx++];
+    }
+    var pool = ACTS[act];
+    return pool[Math.floor(Math.random() * pool.length)];
   };
 
   // one-line threat callouts, announced the first time each type appears in a run
@@ -267,7 +319,10 @@
       DA.burst(e.x, e.y, '#e8d44d', 18);
       if (DA.audio && DA.audio.elite) DA.audio.elite();
     }
-    if (st.kills % 25 === 0) DA.announce(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+    if (st.kills % 25 === 0) {
+      var line = DA.presenterQuip(st);
+      if (line) DA.announce(line);
+    }
   };
   DA.onPlayerHurt = function (st, sx, sy) {
     var p = st.player;
