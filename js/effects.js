@@ -53,7 +53,7 @@
     'STAY TUNED. YOU HAVE NO CHOICE.'
   ];
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], shake: 0 };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
 
@@ -81,6 +81,10 @@
                              vy: Math.sin(a) * s + (dy || 0) * 170,
                              life: 0.5, maxLife: 0.5, color: color, r: DA.rand(2, 5) });
     }
+  };
+
+  DA.shockwave = function (x, y, maxR) {   // expanding, fading blast ring (rocket explosions)
+    DA.fx.rings.push({ x: x, y: y, maxR: maxR || 100, life: 0.32, maxLife: 0.32 });
   };
 
   DA.dust = function (x, y) {              // tiny footstep puff, drawn under the player
@@ -140,6 +144,10 @@
       du.y += du.vy * dt; du.life -= dt;
       if (du.life <= 0) fx.dust.splice(d, 1);
     }
+    for (var r = fx.rings.length - 1; r >= 0; r--) {
+      fx.rings[r].life -= dt;
+      if (fx.rings[r].life <= 0) fx.rings.splice(r, 1);
+    }
   };
 
   DA.drawFxUnder = function (ctx) {   // floor stains + deflating corpses, under actors
@@ -180,6 +188,15 @@
 
   DA.drawFxOver = function (ctx) {    // particles + announcer, over actors
     var fx = DA.fx;
+    for (var rg = 0; rg < fx.rings.length; rg++) {
+      var ring = fx.rings[rg];
+      var k = 1 - ring.life / ring.maxLife;
+      ctx.globalAlpha = (1 - k) * 0.7;
+      ctx.strokeStyle = '#ffb347';
+      ctx.lineWidth = 4 * (1 - k) + 1;
+      ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.maxR * k, 0, 7); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
     for (var i = 0; i < fx.particles.length; i++) {
       var p = fx.particles[i];
       ctx.globalAlpha = p.life / p.maxLife;
@@ -196,6 +213,10 @@
       ctx.fillText(pop.text, DA.W / 2, pop.y);
     }
     ctx.globalAlpha = 1;
+  };
+
+  DA.presenterQuip = function () {
+    return QUIPS[Math.floor(Math.random() * QUIPS.length)];
   };
 
   // Game-event hooks fired by combat.js / rooms.js

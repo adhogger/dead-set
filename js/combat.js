@@ -32,8 +32,12 @@
   // rocket splash: damages every OTHER non-boss enemy within radius of the
   // impact point. No combo credit for the freebies, same rule as boomerBlast.
   DA.explodeSplash = function (st, x, y, dmg, radius, exclude) {
-    if (DA.burst) DA.burst(x, y, '#ff8a3d', 16);
-    if (DA.addShake) DA.addShake(6);
+    if (DA.burst) { DA.burst(x, y, '#ff8a3d', 30); DA.burst(x, y, '#ffe17a', 16); }
+    if (DA.splat) DA.splat(x, y);
+    if (DA.shockwave) DA.shockwave(x, y, radius);
+    if (DA.addShake) DA.addShake(16);
+    if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
+    if (DA.audio) DA.audio.roar();
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (e === exclude || e.isBoss) continue;
@@ -56,7 +60,8 @@
       for (var j = st.bullets.length - 1; j >= 0; j--) {
         var b = st.bullets[j];
         if (b.pierce && b.hit.indexOf(e) !== -1) continue; // railgun hits each zombie once
-        if (DA.circleHit(e.x, e.y, e.r, b.x, b.y, b.r)) {
+        var br = b.splash ? Math.max(b.r, 20) : b.r;   // splash rounds detonate on proximity, not just direct hit
+        if (DA.circleHit(e.x, e.y, e.r, b.x, b.y, br)) {
           if (b.pierce) b.hit.push(e);
           else st.bullets.splice(j, 1);
           e.hp -= (b.dmg || 1);

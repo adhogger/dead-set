@@ -128,8 +128,21 @@
         if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(-11, -11, 22, 22, 5); ctx.fill(); }
         else ctx.fillRect(-11, -11, 22, 22);
         ctx.fillStyle = '#14141c';
-        ctx.fillRect(-7, -2, 14, 5);                  // little gun silhouette
-        ctx.fillRect(2, -5, 5, 4);
+        var gunType = pu.type.slice(4);
+        if (gunType === 'flamer') {                   // teardrop flame silhouette
+          ctx.beginPath();
+          ctx.moveTo(0, -8); ctx.quadraticCurveTo(7, 0, 0, 8);
+          ctx.quadraticCurveTo(-7, 0, 0, -8);
+          ctx.fill();
+        } else if (gunType === 'rocket') {             // missile silhouette
+          ctx.beginPath();
+          ctx.moveTo(-8, 3); ctx.lineTo(4, 3); ctx.lineTo(8, 0); ctx.lineTo(4, -3); ctx.lineTo(-8, -3);
+          ctx.closePath(); ctx.fill();
+          ctx.fillRect(-10, -4, 3, 8);                 // tail fin
+        } else {                                       // generic gun silhouette
+          ctx.fillRect(-7, -2, 14, 5);
+          ctx.fillRect(2, -5, 5, 4);
+        }
       }
       ctx.restore();
       ctx.fillStyle = colorOf(pu.type);

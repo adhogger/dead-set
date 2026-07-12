@@ -72,7 +72,7 @@
       mode: 'playing',
       player: DA.makePlayer(),
       score: 0, combo: 1, comboTimer: 0, kills: 0,
-      roomsCleared: 0, groanT: 3, visited: {},
+      roomsCleared: 0, groanT: 3, visited: {}, cleared: {},
       stats: { shots: 0, hits: 0, killsByGun: {}, start: performance.now() }
     };
     st.players = [st.player];                 // st.player stays the human, always
@@ -582,10 +582,12 @@
     } else if (st.waveManager.done) {
       if (!st.roomCleared) {
         st.roomCleared = true;
+        st.cleared[st.roomId] = true;
         st.players.forEach(function (rp) {   // medics patch everyone between segments
           if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
         });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
+        if (DA.presenterQuip) DA.announce(DA.presenterQuip());
       }
       checkExits(st);
     }
@@ -868,10 +870,35 @@
       if (!room.map || (room.ep || 1) !== ep) continue;
       var x = ox + room.map.x * sx, y = oy + room.map.y * sy;
       var here = id === st.roomId;
+      var cleared = st.cleared && st.cleared[id];
+      if (room.boss) {                                 // boss: pulsing diamond, hard to miss
+        var bp = 1 + Math.sin(performance.now() / 220) * 0.18;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = here ? '#7ee081' : '#ff3b3b';
+        var bs = 11 * (here ? 1 : bp);
+        ctx.fillRect(-bs / 2, -bs / 2, bs, bs);
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1.5;
+        ctx.strokeRect(-bs / 2, -bs / 2, bs, bs);
+        ctx.restore();
+        if (!here) {
+          ctx.strokeStyle = 'rgba(255, 59, 59, 0.45)'; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(x, y, 13 * bp, 0, 7); ctx.stroke();
+        }
+        continue;
+      }
       ctx.beginPath(); ctx.arc(x, y, here ? 9 : 7, 0, 7);
       if (here) { ctx.fillStyle = '#7ee081'; ctx.fill(); }
+      else if (cleared) { ctx.fillStyle = '#3a5a3a'; ctx.fill(); }
       else if (st.visited && st.visited[id]) { ctx.fillStyle = '#e8d44d'; ctx.fill(); }
-      else { ctx.strokeStyle = room.boss ? '#c95d63' : '#555566'; ctx.lineWidth = 2; ctx.stroke(); }
+      else { ctx.strokeStyle = '#555566'; ctx.lineWidth = 2; ctx.stroke(); }
+      if (cleared && !here) {                           // tick mark: unmistakably done
+        ctx.strokeStyle = '#7ee081'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 3, y); ctx.lineTo(x - 0.5, y + 2.5); ctx.lineTo(x + 3.5, y - 3);
+        ctx.stroke();
+      }
     }
   }
 

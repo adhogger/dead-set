@@ -47,6 +47,16 @@
       var dx = Math.cos(a), dy = Math.sin(a);
       DA.fireBullet(arr, p.x + dx * 20, p.y + dy * 20, dx, dy,
                     p.bot ? Object.assign({ botOwned: true }, g) : g);
+      if (p.gun === 'flamer' && DA.fx) {          // extra non-damaging licks for a denser flame
+        for (var fk = 0; fk < 2; fk++) {
+          var fa = a + DA.rand(-0.22, 0.22);
+          var fs = DA.rand(340, 520);
+          DA.fx.particles.push({ x: p.x + dx * 20, y: p.y + dy * 20,
+                                  vx: Math.cos(fa) * fs, vy: Math.sin(fa) * fs,
+                                  life: 0.14, maxLife: 0.14,
+                                  color: fk === 0 ? '#ffcf6b' : '#ff5b1f', r: DA.rand(2, 4) });
+        }
+      }
     }
     if (g.kick) { p.vx -= Math.cos(base) * g.kick; p.vy -= Math.sin(base) * g.kick; }
     if (g.shake && DA.addShake) DA.addShake(g.shake);

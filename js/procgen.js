@@ -19,7 +19,7 @@
   ];
   var GIFT_NAMES = ["SPONSOR'S LOUNGE", 'HOSPITALITY SUITE', 'THE GIFTING ROOM'];
   var BOSS_NAMES = ['SOUND STAGE 13', 'THE PENTHOUSE SET', 'THE FINALE FLOOR'];
-  var SHAPES = [{ w: 3, h: 1 }, { w: 4, h: 1 }, { w: 3, h: 2 }];
+  var SHAPES = [{ w: 3, h: 1 }, { w: 4, h: 1 }, { w: 3, h: 2 }, { w: 2, h: 2 }, { w: 4, h: 2 }];
 
   // spawn-group templates per type; costs express lethality per body
   var COST = { shambler: 1, swarmer: 0.6, sprinter: 2.5, boomer: 4, stalker: 5, brute: 6 };
@@ -68,7 +68,7 @@
       for (var x = 0; x <= shape.w; x++) {
         for (var y = 0; y <= shape.h; y++) cells[x + ',' + y] = true;
       }
-      var drops = Math.floor(rng() * 3);           // 0..2 missing cells
+      var drops = Math.floor(rng() * 4);           // 0..3 missing cells
       for (var d = 0; d < drops; d++) {
         var dx = Math.floor(rng() * (shape.w + 1));
         var dy = Math.floor(rng() * (shape.h + 1));
