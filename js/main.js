@@ -107,7 +107,18 @@
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       st.introCardT = 1.7;   // lower-third title card instead of an announcer line
-      st.countdownT = 2.1;   // 3-2-1 before the doors open
+      st.countdownT = entryDir ? 3.0 : 0;   // 3-2-1 (fresh episodes walk in first)
+      if (DA.primeWave) DA.primeWave(st.waveManager);   // sirens burn through the countdown
+      if (!entryDir) {                      // fresh episode: walk in through the doors
+        st.entranceT = 1.2;
+        var sd = DA.doorByDir('S');
+        for (var wi = 0; wi < st.players.length; wi++) {
+          var wp = st.players[wi];
+          wp.x = sd.x + (wi === 0 ? -26 : 26);
+          wp.y = DA.ARENA.y1 - 24;
+          wp.aimX = 0; wp.aimY = -1;
+        }
+      }
     }
     if (DA.net) DA.net.onEnterRoom(roomId, entryDir);
   }
@@ -710,6 +721,22 @@
     if (pauseHeld && !pauseWasHeld) paused = !paused;
     if (!paused) showBestiary = false;
     pauseWasHeld = pauseHeld;
+    if (st.entranceT > 0) {                      // walking on set — no control yet
+      st.entranceT -= dt;
+      for (var ei = 0; ei < st.players.length; ei++) {
+        var ep2 = st.players[ei];
+        var tx = DA.W / 2 + (ei === 0 ? -26 : 26), ty = DA.H / 2;
+        var k2 = Math.min(1, 3.2 * dt);
+        ep2.vx = (tx - ep2.x) * 3.2; ep2.vy = (ty - ep2.y) * 3.2;   // feet animate
+        ep2.x += (tx - ep2.x) * k2;
+        ep2.y += (ty - ep2.y) * k2;
+        ep2.walkT = (ep2.walkT || 0) + Math.sqrt(ep2.vx * ep2.vx + ep2.vy * ep2.vy) * dt * 0.06;
+      }
+      if (st.entranceT <= 0) st.countdownT = 3.0;   // in position: cue the countdown
+      if (st.introCardT > 0) st.introCardT -= dt;
+      DA.updateFx(dt);
+      return;
+    }
     var cornerTap = DA.input.consumePauseTap();
     if (cornerTap) paused = !paused;                                  // the ⏸ chip toggles
     if (paused) {                                                     // pause MENU input
@@ -766,9 +793,9 @@
     }
     DA.updateBullets(st.bullets, dt);
     if (st.countdownT > 0) {                     // 3... 2... 1... nothing spawns yet
-      var cdPrev = Math.ceil(st.countdownT / 0.7);
+      var cdPrev = Math.ceil(st.countdownT / 1.0);
       st.countdownT -= dt;
-      var cdNow = Math.ceil(Math.max(st.countdownT, 0.001) / 0.7);
+      var cdNow = Math.ceil(Math.max(st.countdownT, 0.001) / 1.0);
       if (cdNow !== cdPrev || st.countdownT <= 0) {
         if (DA.audio && DA.audio.tick) DA.audio.tick();
         if (st.countdownT <= 0 && DA.addShake) DA.addShake(5);
@@ -1169,14 +1196,16 @@
     }
     ctx.stroke();
     var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
+    var sirenMap = (st.waveManager && st.waveManager.sirens) || {};
     var anySiren = false;
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
       var isExit = st.room && ((st.room.exits[d.dir] && st.roomCleared) ||
                                (st.bossDead && st.victoryExit === d.dir));
-      var isSpawning = active.indexOf(d) !== -1;      // red = zombies use this door
+      var isPouring = active.indexOf(d) !== -1;       // zombies mid-pour: slab washes red
+      var isSpawning = !isExit && (isPouring || !!sirenMap[d.dir]);  // lamps: warn + pour + linger
       ctx.fillStyle = isExit ? '#2e6b3a' :
-        (isSpawning ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
+        (isPouring ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
       if (d.dir === 'N' || d.dir === 'S') ctx.fillRect(d.x - 50, d.y - 20, 100, 40);
       else ctx.fillRect(d.x - 20, d.y - 50, 40, 100);
       // warning-striped frame posts flanking every gap — studio safety theatre
@@ -1199,8 +1228,8 @@
         var LX = lamps[lp][0], LY = lamps[lp][1];
         ctx.fillStyle = '#26262e';                     // lamp housing
         ctx.fillRect(LX - 5, LY - 5, 10, 10);
-        if (isExit) {                                  // green: this way out
-          var ga = 0.65 + Math.sin(lampNow / 400) * 0.25;
+        if (isExit) {                                  // green: FLASHING until you take it
+          var ga = Math.floor(lampNow / 260) % 2 ? 0.95 : 0.3;
           ctx.fillStyle = 'rgba(126, 224, 129, ' + (ga * 0.35).toFixed(3) + ')';
           ctx.beginPath(); ctx.arc(LX, LY, 11, 0, 7); ctx.fill();
           ctx.fillStyle = 'rgba(126, 224, 129, ' + ga.toFixed(3) + ')';
@@ -1926,9 +1955,9 @@
     drawHud(ctx, st);
     if (st.mode === 'playing' && st.introCardT > 0) drawIntroCard(ctx, st);
     if (st.mode === 'playing' && st.countdownT > 0) {   // 3-2-1, centre stage
-      var cdDigit = Math.ceil(st.countdownT / 0.7);
-      var cdSeg = st.countdownT - (cdDigit - 1) * 0.7;  // 0.7 -> 0 within the digit
-      var cdScale = 1 + (0.7 - cdSeg) * 0.9;
+      var cdDigit = Math.ceil(st.countdownT / 1.0);
+      var cdSeg = st.countdownT - (cdDigit - 1) * 1.0;  // 1s per digit
+      var cdScale = 1 + (1.0 - cdSeg) * 0.7;
       ctx.textAlign = 'center';
       ctx.globalAlpha = Math.min(1, cdSeg / 0.12);
       ctx.font = 'bold ' + Math.round(110 * cdScale) + 'px monospace';

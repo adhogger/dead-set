@@ -323,11 +323,25 @@
 
   DA.makeWaveManager = function (room) {
     return { room: room, wave: 0, spawners: null, activeDoors: null, currentSpawnDoors: [],
-             betweenTimer: 2, done: !room.endless && room.waves.length === 0 };
+             sirens: {}, nextDoors: null, betweenTimer: 2,
+             done: !room.endless && room.waves.length === 0 };
+  };
+  // prime the FIRST wave so its doors are known during the room countdown:
+  // sirens flash through the 3-2-1, and zombies release the moment it hits 0
+  DA.primeWave = function (wm) {
+    if (wm.done) return;
+    var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+    if (!wave) return;
+    wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    wm.sirens = {};
+    wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = 3.2; });
+    wm.betweenTimer = 0.05;
+    wm.primed = true;
   };
   function startWave(wm) {
     var wave = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
-    wm.activeDoors = shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    wm.activeDoors = wm.nextDoors || shuffled(DA.DOORS).slice(0, DA.clamp(wave.doors || 4, 1, 4));
+    wm.nextDoors = null;
     // co-op: two guns double the clear rate, so the show sends a bigger cast
     // AND feeds them through the doors faster
     var coop = DA.state && DA.state.players && DA.state.players.length > 1;
@@ -335,15 +349,34 @@
     wm.spawners = wave.groups.map(function (g) {
       return { type: g.type, left: Math.round(g.count * countMult),
                interval: g.interval * paceMult, speed: g.speed,
-               burst: g.burst || 1, burstLeft: 0, burstDoor: null, timer: 0.5 };
+               burst: g.burst || 1, burstLeft: 0, burstDoor: null,
+               timer: wm.primed ? 0.1 : 0.5 };
     });
+    wm.primed = false;
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
   }
   DA.updateWaves = function (wm, enemies, dt) {
+    // siren ledger: every entry decays; anything still spawning gets topped
+    // back to 3s each tick, so a lamp burns from 3s BEFORE a door's first
+    // zombie until 3s after its last one steps through
+    wm.sirens = wm.sirens || {};
+    for (var sd in wm.sirens) {
+      wm.sirens[sd] -= dt;
+      if (wm.sirens[sd] <= 0) delete wm.sirens[sd];
+    }
     if (wm.done) { wm.currentSpawnDoors = []; return; }
     if (!wm.spawners) {                   // between waves: nothing is coming through any door
       wm.currentSpawnDoors = [];
       wm.betweenTimer -= dt;
+      if (wm.betweenTimer <= 3 && !wm.nextDoors) {   // warn: light next wave's doors early
+        var nw = wm.room.endless ? DA.endlessWave(wm.wave) : wm.room.waves[wm.wave];
+        if (nw) {
+          wm.nextDoors = shuffled(DA.DOORS).slice(0, DA.clamp(nw.doors || 4, 1, 4));
+        }
+      }
+      if (wm.nextDoors) {
+        wm.nextDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, 3.2); });
+      }
       if (wm.betweenTimer <= 0) startWave(wm);
       return;
     }
@@ -378,11 +411,14 @@
     // actually coming through right now, not the whole wave's door pool
     wm.currentSpawnDoors = wm.spawners.filter(function (s) { return s.burstLeft > 0; })
                                        .map(function (s) { return s.burstDoor; });
+    if (pending > 0) {                             // doors stay hot while anything's still due
+      wm.activeDoors.forEach(function (d) { wm.sirens[d.dir] = Math.max(wm.sirens[d.dir] || 0, 3); });
+    }
     if (pending === 0 && enemies.length === 0) {   // wave cleared
       wm.wave++;
       wm.spawners = null;
       wm.activeDoors = null;
-      wm.betweenTimer = 2.5;
+      wm.betweenTimer = 3.4;                       // room for the 3s warn before the next wave
       if (!wm.room.endless && wm.wave >= wm.room.waves.length) wm.done = true;
     }
   };
