@@ -210,7 +210,19 @@
       ctx.globalAlpha = Math.min(1, pop.life / (pop.maxLife * 0.5));
       ctx.font = 'bold 40px monospace';
       ctx.fillStyle = '#e8d44d';
-      ctx.fillText(pop.text, DA.W / 2, pop.y);
+      if (!pop.lines) {                 // wrap once, on first draw — long announcer
+        pop.lines = [];                 // lines were running off the screen edges
+        var words = pop.text.split(' '), cur = '';
+        for (var w = 0; w < words.length; w++) {
+          var tryLine = cur ? cur + ' ' + words[w] : words[w];
+          if (cur && ctx.measureText(tryLine).width > DA.W - 120) { pop.lines.push(cur); cur = words[w]; }
+          else cur = tryLine;
+        }
+        if (cur) pop.lines.push(cur);
+      }
+      for (var li = 0; li < pop.lines.length; li++) {
+        ctx.fillText(pop.lines[li], DA.W / 2, pop.y + li * 46);
+      }
     }
     ctx.globalAlpha = 1;
   };

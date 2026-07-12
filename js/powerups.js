@@ -60,12 +60,13 @@
   };
 
   DA.updatePowerups = function (st, dt) {
-    if (st.powerupT === undefined) st.powerupT = DA.rand(8, 14);
-    // only drop while there's a fight happening
-    if (st.enemies.length > 0) {
+    if (st.powerupT === undefined) st.powerupT = DA.rand(12, 18);
+    // only drop while there's a fight happening, and never pile up more
+    // than 2 unclaimed gifts (elites can still add theirs on top)
+    if (st.enemies.length > 0 && st.powerups.length < 2) {
       st.powerupT -= dt;
       if (st.powerupT <= 0) {
-        st.powerupT = DA.rand(12, 18);
+        st.powerupT = DA.rand(18, 26);
         var type = DA.pickDropType(st.player, st.lastGunDrop);
         if (type.indexOf('gun_') === 0) st.lastGunDrop = type;
         st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME,
