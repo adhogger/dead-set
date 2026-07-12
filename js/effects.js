@@ -127,7 +127,7 @@
       if (pop.life <= 0) fx.popups.splice(j, 1);
     }
     if (fx.popups.length === 0 && fx.queue.length > 0) {  // promote the next message
-      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 2.0, maxLife: 2.0 });
+      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 3.4, maxLife: 3.4 });
       if (DA.audio) DA.audio.sting();
     }
     for (var c = fx.corpses.length - 1; c >= 0; c--) {

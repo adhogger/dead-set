@@ -265,6 +265,8 @@
     if (e.code === 'KeyG') showDebug = !showDebug;
     if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
     if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') showBestiary = !showBestiary;
+    if (e.code === 'KeyC' && DA.state.mode === 'title') showBestiary = !showBestiary;
+    if (e.code === 'Escape' && showBestiary) showBestiary = false;
     if (e.code === 'KeyK') {   // screen shake toggle, remembered
       DA.fx.shakeOn = DA.fx.shakeOn === false;
       try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
@@ -512,6 +514,12 @@
     if (st.mode !== 'playing') {
       paused = false;
       if (st.goFade > 0) st.goFade -= dt;
+      if (showBestiary && st.mode === 'title') {   // cast page open: fire closes it, nothing starts
+        if (startHeld && !startWasHeld) showBestiary = false;
+        startWasHeld = startHeld;
+        DA.updateFx(dt);
+        return;
+      }
       if (startHeld && !startWasHeld) {
         DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
                    { mode: 'intro', page: 0 } : newGame();
@@ -933,7 +941,7 @@
     ctx.textAlign = 'center';
     ctx.font = 'bold 20px monospace';
     ctx.fillStyle = '#7ee081';
-    ctx.fillText('B or Esc — back to the show', DA.W / 2, 682);
+    ctx.fillText('Esc — back to the show', DA.W / 2, 682);
   }
 
   function drawMap(ctx, st) {
@@ -1199,6 +1207,7 @@
       return;
     }
     if (st.mode === 'title') {
+      if (showBestiary) { drawBestiary(ctx); return; }
       drawArena(ctx, {});
       var hint = DA.input.touchActive() ?
         'left thumb moves — right thumb aims & fires — tap to start' :
@@ -1262,6 +1271,8 @@
       lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
                    font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
       cy += 34;
+      lines.push({ text: "C — TONIGHT'S CAST: meet the monsters", font: '17px monospace', color: '#8888a0', y: cy });
+      cy += 26;
       if (window.SLASHTV_DONATE_URL) {              // inert until Ben configures a link
         lines.push({ text: 'D — 💛 SUPPORT THE SHOW (optional — no ads, ever)',
                      font: '16px monospace', color: '#e8d44d', y: cy });
