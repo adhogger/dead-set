@@ -460,7 +460,6 @@
       DA.burst(e.x, e.y, '#e8d44d', 18);
       if (DA.audio && DA.audio.elite) DA.audio.elite();
     }
-    if (st.kills % 25 === 0) DA.hostSay(DA.presenterQuip(st));
   };
   DA.onPlayerHurt = function (st, sx, sy) {
     var p = st.player;
@@ -474,5 +473,13 @@
   DA.onWaveStart = function (n) {
     if (n > 1) DA.announce('WAVE ' + n);   // wave 1 follows the room name: let it breathe
     if (DA.audio) DA.audio.wave();
+    // the presenter speaks ONCE per wave, a couple of seconds in
+    var st = DA.state;
+    if (st && st.mode === 'playing' && DA.presenterQuip) {
+      var line = DA.presenterQuip(st);
+      if (line) setTimeout(function () {
+        if (DA.state === st && st.mode === 'playing') DA.hostSay(line);
+      }, 2200);
+    }
   };
 })();

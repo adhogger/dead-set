@@ -902,7 +902,6 @@
           if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
         });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
-        if (DA.hostSay && DA.presenterQuip) DA.hostSay(DA.presenterQuip(st));
       }
       checkExits(st);
     }
@@ -1487,9 +1486,11 @@
     if (!hst) return;
     if (DA.state && DA.state.introCardT > 0) return;   // the title card owns this corner
     var a = Math.max(0, Math.min(1, (hst.max - hst.t) / 0.25, hst.t / 0.4));
+    // signal quality: full static as the feed cuts in, and again as it cuts out
+    var glitch = Math.max(0, 1 - (hst.max - hst.t) / 0.3, 1 - hst.t / 0.38);
     var x = 14, y = 545, w = 478, h = 118;
-    ctx.globalAlpha = a;
-    ctx.fillStyle = 'rgba(8, 8, 14, 0.93)';
+    ctx.globalAlpha = a * 0.82;                         // see-through: the action shows behind
+    ctx.fillStyle = 'rgba(8, 8, 14, 0.78)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h);
     ctx.fill();
@@ -1524,6 +1525,7 @@
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
       ctx.globalAlpha = 1;
       return;
     }
@@ -1551,6 +1553,7 @@
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
       ctx.globalAlpha = 1;
       return;
     }
@@ -1607,6 +1610,7 @@
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
     drawHostCaption(ctx, hst, x, y, w, bx, bs);
+    if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
     ctx.globalAlpha = 1;
   }
   function drawHostCaption(ctx, hst, x, y, w, bx, bs) {
@@ -1627,6 +1631,30 @@
     for (var li = 0; li < hst.lines.length && li < 4; li++) {
       ctx.fillText(hst.lines[li], bx + bs + 14, y + 44 + li * 20);
     }
+  }
+
+  // broadcast static over the cam window while the feed cuts in/out
+  function drawCamStatic(ctx, x, y, w, h, g) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    for (var n = 0; n < 46 * g; n++) {                  // snow
+      var sx2 = x + Math.random() * w, sy2 = y + Math.random() * h;
+      var lum = 40 + Math.random() * 215 | 0;
+      ctx.fillStyle = 'rgba(' + lum + ',' + lum + ',' + lum + ',' + (0.25 + Math.random() * 0.5) + ')';
+      ctx.fillRect(sx2, sy2, 2 + Math.random() * 5, 1.5);
+    }
+    for (var b2 = 0; b2 < 3; b2++) {                    // rolling tear bands
+      if (Math.random() < g) {
+        var by2 = y + Math.random() * h;
+        ctx.fillStyle = 'rgba(255,255,255,' + (0.05 + Math.random() * 0.1) + ')';
+        ctx.fillRect(x, by2, w, 2 + Math.random() * 5);
+      }
+    }
+    if (Math.random() < g * 0.7) {                      // rgb fringe flicker
+      ctx.fillStyle = 'rgba(255,60,60,0.1)'; ctx.fillRect(x + 2, y, w, h);
+      ctx.fillStyle = 'rgba(60,255,220,0.08)'; ctx.fillRect(x - 2, y, w, h);
+    }
+    ctx.restore();
   }
 
   function drawMap(ctx, st) {
