@@ -90,8 +90,9 @@
     ctx.restore();
   };
 
-  // the audience is seated once, in the gallery strips beyond the walls,
-  // clear of the four doors and the on-air bug
+  // the audience is seated once, in the gallery strips beyond the walls on
+  // all four sides, clear of the doors and the on-air bug. The HUD (drawn
+  // after this layer) covers any dots that would otherwise sit under it.
   var crowd = [];
   (function seatTheAudience() {
     var x, y;
@@ -99,6 +100,11 @@
       if (x > 575 && x < 705) continue;                // the south door
       crowd.push({ x: x + DA.rand(-5, 5), y: 703 + DA.rand(-4, 4),
                    r: DA.rand(8, 13), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
+    }
+    for (x = 205; x < 1235; x += 26) {
+      if (x > 575 && x < 705) continue;                // the north door
+      crowd.push({ x: x + DA.rand(-5, 5), y: 15 + DA.rand(-3, 3),
+                   r: DA.rand(7, 11), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
     }
     for (y = 58; y < 665; y += 30) {
       if (y > 295 && y < 425) continue;                // the side doors
@@ -189,8 +195,15 @@
   DA.onKill = function (st, e, b) {
     baseKill(st, e, b);
     if (!B.on) return;
-    if (Math.random() < Math.min(0.2 + st.combo * 0.09, 0.85)) popFlash();
-    if (st.combo > B.lastCombo) B.applause = 1.4;      // the sign lights on a step up
+    var comboStepped = st.combo > B.lastCombo;
+    var bigKill = e.isBoss || e.r >= 20 || comboStepped;  // brute, boss, or a fresh multiplier step
+    if (bigKill) {
+      var burst = e.isBoss ? 8 : (comboStepped ? 5 : 3);  // the crowd loses it
+      for (var i = 0; i < burst; i++) popFlash();
+    } else if (Math.random() < Math.min(0.08 + st.combo * 0.03, 0.3)) {
+      popFlash();                                         // otherwise just the odd snap
+    }
+    if (comboStepped) B.applause = 1.4;                // the sign lights on a step up
     B.lastCombo = st.combo;
     if (e.isBoss || e.r >= 20) B.glitch = Math.max(B.glitch, 0.16); // big deaths jolt the signal
   };

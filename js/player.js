@@ -100,10 +100,10 @@
     ctx.fillRect(p.r - 3, -2.5, 11, 5);
     var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // muzzle flash right after a shot
     if (p.firing && p.fireCooldown > g.rate - 0.05) {
-      ctx.fillStyle = 'rgba(255, 240, 150, 0.9)';
-      ctx.beginPath(); ctx.arc(p.r + 11, 0, 5.5, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255, 200, 80, 0.25)';
-      ctx.beginPath(); ctx.arc(p.r + 11, 0, 13, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 240, 150, 0.4)';
+      ctx.beginPath(); ctx.arc(p.r + 11, 0, 3, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 200, 80, 0.1)';
+      ctx.beginPath(); ctx.arc(p.r + 11, 0, 7, 0, 7); ctx.fill();
     }
     ctx.restore();
   };

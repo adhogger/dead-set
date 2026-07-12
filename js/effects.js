@@ -57,10 +57,20 @@
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
 
-  // a felled zombie deflates into the floor instead of blinking out
+  // a felled zombie shatters into flying shards instead of blinking out —
+  // or deflating: this reads as glass breaking, not a balloon losing air
   DA.corpse = function (x, y, r, color) {
-    DA.fx.corpses.push({ x: x, y: y, r: r, color: color, t: 0.45, max: 0.45 });
-    if (DA.fx.corpses.length > 80) DA.fx.corpses.shift();
+    var n = 7 + Math.floor(r / 2.5);
+    for (var i = 0; i < n; i++) {
+      var a = DA.rand(0, 6.283), speed = DA.rand(70, 240);
+      DA.fx.corpses.push({
+        x: x, y: y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - DA.rand(30, 90),
+        rot: DA.rand(0, 6.283), rotV: DA.rand(-9, 9),
+        w: DA.rand(3, Math.max(4, r * 0.5)), h: DA.rand(3, Math.max(4, r * 0.5)),
+        color: color, t: 0.55, max: 0.55, grav: 320
+      });
+    }
+    if (DA.fx.corpses.length > 320) DA.fx.corpses.splice(0, DA.fx.corpses.length - 320);
   };
 
   DA.burst = function (x, y, color, n, dx, dy) {
@@ -112,8 +122,12 @@
       if (DA.audio) DA.audio.sting();
     }
     for (var c = fx.corpses.length - 1; c >= 0; c--) {
-      fx.corpses[c].t -= dt;
-      if (fx.corpses[c].t <= 0) fx.corpses.splice(c, 1);
+      var sh = fx.corpses[c];
+      sh.t -= dt;
+      if (sh.t <= 0) { fx.corpses.splice(c, 1); continue; }
+      sh.vy += sh.grav * dt;
+      sh.x += sh.vx * dt; sh.y += sh.vy * dt;
+      sh.rot += sh.rotV * dt;
     }
     if (fx.shake > 0) fx.shake = Math.max(0, fx.shake - 30 * dt);
   };
@@ -128,15 +142,20 @@
         ctx.beginPath(); ctx.arc(s.x + blob.dx, s.y + blob.dy, blob.r, 0, 7); ctx.fill();
       }
     }
-    var corpses = DA.fx.corpses;
+    var corpses = DA.fx.corpses;                     // flying glass-shard fragments
     for (var c = 0; c < corpses.length; c++) {
-      var k = corpses[c].t / corpses[c].max;         // 1 -> 0 as it deflates
-      ctx.globalAlpha = 0.35 + k * 0.5;
-      ctx.fillStyle = corpses[c].color;
-      ctx.beginPath();
-      ctx.ellipse(corpses[c].x, corpses[c].y + corpses[c].r * (1 - k) * 0.6,
-                  corpses[c].r * (1 + (1 - k) * 0.35), Math.max(1, corpses[c].r * k), 0, 0, 7);
-      ctx.fill();
+      var sh = corpses[c];
+      var k = sh.t / sh.max;
+      ctx.save();
+      ctx.translate(sh.x, sh.y);
+      ctx.rotate(sh.rot);
+      ctx.globalAlpha = Math.max(0, k);
+      ctx.fillStyle = sh.color;
+      ctx.fillRect(-sh.w / 2, -sh.h / 2, sh.w, sh.h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-sh.w / 2, -sh.h / 2, sh.w, sh.h);
+      ctx.restore();
     }
     ctx.globalAlpha = 1;
   };

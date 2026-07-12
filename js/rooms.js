@@ -313,7 +313,7 @@
   }
 
   DA.makeWaveManager = function (room) {
-    return { room: room, wave: 0, spawners: null, activeDoors: null,
+    return { room: room, wave: 0, spawners: null, activeDoors: null, currentSpawnDoors: [],
              betweenTimer: 2, done: !room.endless && room.waves.length === 0 };
   };
   function startWave(wm) {
@@ -327,8 +327,9 @@
     if (DA.onWaveStart) DA.onWaveStart(wm.wave + 1);
   }
   DA.updateWaves = function (wm, enemies, dt) {
-    if (wm.done) return;
-    if (!wm.spawners) {                   // between waves
+    if (wm.done) { wm.currentSpawnDoors = []; return; }
+    if (!wm.spawners) {                   // between waves: nothing is coming through any door
+      wm.currentSpawnDoors = [];
       wm.betweenTimer -= dt;
       if (wm.betweenTimer <= 0) startWave(wm);
       return;
@@ -360,6 +361,10 @@
         s.timer = s.burstLeft > 0 ? 0.12 : s.interval * DA.rand(0.7, 1.3);
       }
     });
+    // doors currently mid-pack — used to flash ONLY the doors zombies are
+    // actually coming through right now, not the whole wave's door pool
+    wm.currentSpawnDoors = wm.spawners.filter(function (s) { return s.burstLeft > 0; })
+                                       .map(function (s) { return s.burstDoor; });
     if (pending === 0 && enemies.length === 0) {   // wave cleared
       wm.wave++;
       wm.spawners = null;

@@ -781,7 +781,7 @@
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 2;
     ctx.strokeRect(A.x0 + 1, A.y0 + 1, A.x1 - A.x0 - 2, A.y1 - A.y0 - 2);
-    var active = (st.waveManager && st.waveManager.activeDoors) || [];
+    var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
       var isExit = st.room && st.room.exits[d.dir] && st.roomCleared;
@@ -1061,9 +1061,10 @@
       var lines = [
         { text: 'SLASH TV', font: 'bold 96px monospace', color: '#e8d44d', y: 240 },
         { text: 'THE FINAL BROADCAST', font: 'bold 32px monospace', color: '#d43a4b', y: 290 },
-        { text: tagline, font: '21px monospace', color: '#f2f2e9', y: 328 },
-        { text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 }
+        { text: tagline, font: '21px monospace', color: '#f2f2e9', y: 328 }
       ];
+      // net status sits in the fixed gap between the tagline and the press-fire
+      // line — at most one of these two ever shows, so a fixed slot is safe
       if (DA.net && DA.net.status === 'hosting') {
         lines.push({ text: 'ROOM ' + (DA.net.code || '····') +
                            (DA.net.remoteJoined ? ' — CONTESTANT 2 READY' : ' — waiting for contestant 2'),
@@ -1071,40 +1072,54 @@
       } else if (DA.net && DA.net.status === 'error') {
         lines.push({ text: 'RELAY ERROR — see server/README.md', font: 'bold 18px monospace', color: '#d43a4b', y: 364 });
       }
+      lines.push({ text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 });
+      // dynamic vertical stack from here down: a running cursor, not fixed
+      // offsets, so no combination of unlocks can ever overlap two lines
+      var cy = 434;
       if (ep2Unlocked()) {
         lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
-                     font: 'bold 24px monospace', color: '#c95d63', y: 426 });
+                     font: 'bold 24px monospace', color: '#c95d63', y: cy });
+        cy += 32;
       }
-      var yOff = 0;
       if (ep3Unlocked()) {
         lines.push({ text: '4 (or 🎮 B/Circle) — EPISODE 3: LIVE FINALE' + (load('deadset_ep3') === '1' ? ' ✓' : ''),
-                     font: 'bold 24px monospace', color: '#2fd7c4', y: 452 });
-        yOff = 26;
+                     font: 'bold 24px monospace', color: '#2fd7c4', y: cy });
+        cy += 32;
       }
       if (endlessUnlocked()) {
         lines.push({ text: 'E (or 🎮 Y) — ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
-                     font: 'bold 22px monospace', color: '#5bc8d6', y: 462 + yOff });
+                     font: 'bold 22px monospace', color: '#5bc8d6', y: cy });
+        cy += 30;
       }
       lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
-                    font: 'bold 22px monospace', color: '#b78bff', y: 494 + yOff });
+                    font: 'bold 22px monospace', color: '#b78bff', y: cy });
+      cy += 30;
       if (DA.lb && DA.lb.today && DA.lb.today.length && DA.lb.todaySeed === synSeed()) {
         var podium = DA.lb.today.slice(0, 3).map(function (s, i) {
           return (i + 1) + '. ' + s.name + ' $' + s.score.toLocaleString('en-US');
         }).join('   ');
-        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: 515 + yOff });
+        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: cy });
+        cy += 26;
       }
       var best = load('deadset_best');
-      if (best) lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
-                             font: 'bold 20px monospace', color: '#e8d44d', y: 524 + yOff });
-      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: 548 + yOff });
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: 572 + yOff });
-    lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
-                 font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: 618 + yOff });
-      if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
-        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: 652 + yOff });
+      if (best) {
+        lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
+                     font: 'bold 20px monospace', color: '#e8d44d', y: cy });
+        cy += 28;
       }
+      cy += 12;
+      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: cy });
+      cy += 26;
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: cy });
+      cy += 30;
+      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
+                   font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
+      cy += 34;
+      if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
+        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: cy });
+      }
+      drawAttract(ctx);         // the parade sits behind the copy, never over it
       drawCenteredScreen(ctx, lines);
-      drawAttract(ctx);
       DA.drawFxOver(ctx);
       drawTouchUI(ctx);
       drawScreenFx(ctx);

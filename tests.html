@@ -245,6 +245,18 @@ test('burst groups spawn in packs with quiet gaps, all from one door', function 
   for (i = 0; i < 40; i++) DA.updateWaves(wm, enemies, 0.05);     // 2s more: inside the gap
   assert(enemies.length === 4, 'gap between packs stays quiet');
 });
+test('currentSpawnDoors only lists doors mid-pack, not the whole wave pool', function () {
+  var room = { waves: [{ doors: 4, groups: [{ type: 'shambler', count: 4, interval: 9, burst: 4 }] }] };
+  var wm = DA.makeWaveManager(room);
+  var enemies = [];
+  assert(wm.currentSpawnDoors.length === 0, 'nothing spawning before the wave even starts');
+  DA.updateWaves(wm, enemies, 2.1);                // clears the between-waves pause, inits the wave
+  DA.updateWaves(wm, enemies, 0.6);                // first spawner tick actually fires
+  assert(wm.currentSpawnDoors.length === 1, 'exactly one door lit while the pack pours out');
+  for (var i = 0; i < 20 && enemies.length < 4; i++) DA.updateWaves(wm, enemies, 0.15);
+  assert(enemies.length === 4, 'whole pack spawned, got ' + enemies.length);
+  assert(wm.currentSpawnDoors.length === 0, 'door goes dark the instant the pack finishes');
+});
 test('waves stagger their spawn doors per the room data', function () {
   var wm = DA.makeWaveManager(DA.ROOMS.studio1);
   var enemies = [];
@@ -536,14 +548,17 @@ test('gun expires back to pistol after its combat time', function () {
   DA.updatePlayer(p, null, 31, true);
   assert(p.gun === 'pistol' && p.gunT <= 0, 'crate should expire to pistol');
 });
-test('kills leave a deflating corpse that expires', function () {
+test('kills shatter into flying shards that fade and expire', function () {
   DA.fx.corpses.length = 0;
   DA.corpse(100, 100, 12, '#6fae5c');
-  assert(DA.fx.corpses.length === 1, 'corpse added');
+  assert(DA.fx.corpses.length > 1, 'a kill sprays several shard fragments, got ' + DA.fx.corpses.length);
+  var s0 = DA.fx.corpses[0], x0 = s0.x, y0 = s0.y;
+  DA.updateFx(0.1);
+  assert(s0.x !== x0 || s0.y !== y0, 'shards actually fly outward');
   DA.updateFx(1);
-  assert(DA.fx.corpses.length === 0, 'corpse deflated away');
-  for (var i = 0; i < 100; i++) DA.corpse(i, i, 12, '#6fae5c');
-  assert(DA.fx.corpses.length <= 80, 'corpse pile is capped');
+  assert(DA.fx.corpses.length === 0, 'shards fade away');
+  for (var i = 0; i < 40; i++) DA.corpse(i, i, 12, '#6fae5c');
+  assert(DA.fx.corpses.length <= 320, 'shard pile is capped, got ' + DA.fx.corpses.length);
   DA.fx.corpses.length = 0;
 });
 test('announcements show one at a time from a queue', function () {
