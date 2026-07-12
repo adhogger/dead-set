@@ -95,7 +95,15 @@
     return 1;                       // Syndication/Endless: the show at its confident best
   };
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], host: null, shake: 0 };
+
+  // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
+  // talking head and the line as a caption — his quips live there now, so the
+  // centre of the screen stays clear for gameplay callouts.
+  DA.hostSay = function (text) {
+    if (!text) return;
+    DA.fx.host = { text: text, lines: null, t: 4.6, max: 4.6 };
+  };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
 
@@ -156,6 +164,36 @@
     DA.fx.shake = Math.max(DA.fx.shake, amount);
   };
 
+  // Haptics: gamepad rumble (Chrome dual-rumble) + phone vibration (Android;
+  // iOS Safari has no vibrate API, so it degrades silently there).
+  var hapticsOn = true;
+  try { hapticsOn = localStorage.getItem('deadset_haptics') !== '0'; } catch (e) {}
+  DA.hapticsOn = function () { return hapticsOn; };
+  DA.toggleHaptics = function () {
+    hapticsOn = !hapticsOn;
+    try { localStorage.setItem('deadset_haptics', hapticsOn ? '1' : '0'); } catch (e) {}
+    if (DA.announce) DA.announce(hapticsOn ? 'HAPTICS ON' : 'HAPTICS OFF');
+    if (hapticsOn) DA.haptic(0.8, 120);      // a demo thump so the toggle is felt
+    return hapticsOn;
+  };
+  DA.haptic = function (strength, ms) {
+    if (!hapticsOn) return;
+    try {
+      if (navigator.vibrate && DA.input && DA.input.touchActive && DA.input.touchActive()) {
+        navigator.vibrate(ms);
+      }
+      var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      for (var i = 0; i < pads.length; i++) {
+        var p = pads[i];
+        if (p && p.connected && p.vibrationActuator && p.vibrationActuator.playEffect) {
+          p.vibrationActuator.playEffect('dual-rumble',
+            { duration: ms, strongMagnitude: strength, weakMagnitude: Math.min(1, strength + 0.2) });
+          break;
+        }
+      }
+    } catch (e) {}
+  };
+
   DA.updateFx = function (dt) {
     var fx = DA.fx;
     for (var i = fx.particles.length - 1; i >= 0; i--) {
@@ -169,7 +207,8 @@
       if (pop.life <= 0) fx.popups.splice(j, 1);
     }
     if (fx.popups.length === 0 && fx.queue.length > 0) {  // promote the next message
-      fx.popups.push({ text: fx.queue.shift(), y: 130, life: 3.4, maxLife: 3.4 });
+      var py = DA.state && DA.state.mode === 'title' ? 318 : 130;  // clear of the logo
+      fx.popups.push({ text: fx.queue.shift(), y: py, life: 3.4, maxLife: 3.4 });
       if (DA.audio) DA.audio.sting();
     }
     for (var c = fx.corpses.length - 1; c >= 0; c--) {
@@ -189,6 +228,11 @@
     for (var r = fx.rings.length - 1; r >= 0; r--) {
       fx.rings[r].life -= dt;
       if (fx.rings[r].life <= 0) fx.rings.splice(r, 1);
+    }
+    if (fx.host) {
+      // hold the host's entrance while a room title card owns that corner
+      if (!(DA.state && DA.state.introCardT > 0)) fx.host.t -= dt;
+      if (fx.host.t <= 0) fx.host = null;
     }
   };
 
@@ -304,6 +348,7 @@
     DA.splat(e.x, e.y);
     DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
+    if (DA.haptic && e.isBoss) DA.haptic(1, 350);
     if (DA.audio) DA.audio.splat(e.r);
     if (e.elite && st.powerups && DA.pickDropType && st.powerups.length < 3) {
       // a champion pays out — but never floods the floor, and rerolls
@@ -319,14 +364,12 @@
       DA.burst(e.x, e.y, '#e8d44d', 18);
       if (DA.audio && DA.audio.elite) DA.audio.elite();
     }
-    if (st.kills % 25 === 0) {
-      var line = DA.presenterQuip(st);
-      if (line) DA.announce(line);
-    }
+    if (st.kills % 25 === 0) DA.hostSay(DA.presenterQuip(st));
   };
   DA.onPlayerHurt = function (st, sx, sy) {
     var p = st.player;
     DA.addShake(10);
+    if (DA.haptic) DA.haptic(0.9, 130);
     DA.burst(p.x, p.y, '#c0392b', 16);
     p.hurtDir = (sx != null) ? Math.atan2(sy - p.y, sx - p.x) : null;
     p.hurtFlashT = 0.35;

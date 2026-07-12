@@ -38,6 +38,7 @@
     if (DA.splat) DA.splat(x, y);
     if (DA.shockwave) DA.shockwave(x, y, radius);
     if (DA.addShake) DA.addShake(16);
+    if (DA.haptic) DA.haptic(0.6, 90);
     if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
     if (DA.audio) DA.audio.roar();
     for (var i = st.enemies.length - 1; i >= 0; i--) {

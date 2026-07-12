@@ -23,18 +23,25 @@
   }
   window.addEventListener('mousedown', ensure);
   window.addEventListener('touchstart', ensure);
+  // exposed so the settings screen can drive the same toggles as the hotkeys
+  DA.toggleMute = function () {
+    muted = !muted;
+    if (master) master.gain.value = muted ? 0 : 0.4;
+    if (DA.announce) DA.announce(muted ? 'SOUND OFF' : 'SOUND ON');
+    return !muted;
+  };
+  DA.soundOn = function () { return !muted; };
+  DA.toggleMusic = function () {
+    musicOn = !musicOn;
+    try { localStorage.setItem('deadset_music', musicOn ? '1' : '0'); } catch (err) {}
+    if (musicGain) musicGain.gain.value = musicOn ? 1 : 0;
+    if (DA.announce) DA.announce(musicOn ? 'MUSIC ON' : 'MUSIC OFF');
+    return musicOn;
+  };
+  DA.musicOn = function () { return musicOn; };
   window.addEventListener('keydown', function (e) {
-    if (e.code === 'KeyM') {
-      muted = !muted;
-      if (master) master.gain.value = muted ? 0 : 0.4;
-      if (DA.announce) DA.announce(muted ? 'SOUND OFF' : 'SOUND ON');
-    }
-    if (e.code === 'KeyN') {
-      musicOn = !musicOn;
-      try { localStorage.setItem('deadset_music', musicOn ? '1' : '0'); } catch (err) {}
-      if (musicGain) musicGain.gain.value = musicOn ? 1 : 0;
-      if (DA.announce) DA.announce(musicOn ? 'MUSIC ON' : 'MUSIC OFF');
-    }
+    if (e.code === 'KeyM') DA.toggleMute();
+    if (e.code === 'KeyN') DA.toggleMusic();
     ensure();
   });
 

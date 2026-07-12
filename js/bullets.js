@@ -58,7 +58,10 @@
         }
       }
     }
-    if (g.kick) { p.vx -= Math.cos(base) * g.kick; p.vy -= Math.sin(base) * g.kick; }
+    if (g.kick) {
+      p.vx -= Math.cos(base) * g.kick; p.vy -= Math.sin(base) * g.kick;
+      if (DA.haptic && !p.bot) DA.haptic(0.4, 35);   // heavy guns thump the hands too
+    }
     if (g.shake && DA.addShake) DA.addShake(g.shake);
     if (DA.audio) DA.audio.shot();
     return g.pellets;

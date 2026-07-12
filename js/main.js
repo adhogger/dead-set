@@ -98,7 +98,7 @@
       boss.grace = 2.4;
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
-      if (BOSS_TAUNTS[st.room.boss]) DA.announce(BOSS_TAUNTS[st.room.boss]);
+      if (BOSS_TAUNTS[st.room.boss]) (DA.hostSay || DA.announce)(BOSS_TAUNTS[st.room.boss]);
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       st.introCardT = 1.7;   // lower-third title card instead of an announcer line
@@ -238,19 +238,31 @@
   var endlessWasHeld = false;
   var paused = false;
   var showBestiary = false;   // pause-screen "who's who" overlay
-  // where the tappable title lines were LAST DRAWN — the stack is dynamic
-  // (unlocks add lines), so hardcoded tap zones drift off their text
-  var titleZones = { bot: -99, syn: -99, cast: -99 };
+  var showSettings = false;   // title-screen settings panel
+  var menuSel = 0, setSel = 0;   // keyboard/gamepad cursor per menu
+  var titleMenu = [], settingsMenu = [];   // rebuilt every frame
+
+  function toggleShake() {
+    DA.fx.shakeOn = DA.fx.shakeOn === false;
+    try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
+    DA.announce(DA.fx.shakeOn ? 'SHAKE ON' : 'SHAKE OFF');
+  }
+  function toggleFx() {
+    if (!DA.broadcast) return;
+    DA.broadcast.on = !DA.broadcast.on;
+    try { localStorage.setItem('deadset_bfx', DA.broadcast.on ? '1' : '0'); } catch (err) {}
+    DA.announce(DA.broadcast.on ? 'BROADCAST FX ON' : 'BROADCAST FX OFF');
+  }
   var pauseWasHeld = false;
   var botWasHeld = false;
+  var padNavWas = { d: false, u: false, a: false };   // gamepad menu-nav edges
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
   DA.touchUIBlock = function (x, y) {
     if (DA.state.mode === 'playing' && x > DA.W - 84 && y < 76) return true;
-    if (DA.state.mode === 'title') {          // zones track the lines' drawn positions
-      if (Math.abs(y - titleZones.bot + 7) < 18) return 'bot';
-      if (Math.abs(y - titleZones.syn + 7) < 18) return 'syn';
-      if (Math.abs(y - titleZones.cast + 6) < 16) return 'cast';
+    if (DA.state.mode === 'title') {          // taps route to the menu buttons
+      var bi = DA.titleHit ? DA.titleHit(x, y) : -1;
+      if (bi >= 0) return 'btn:' + bi;
     }
     return false;
   };
@@ -300,19 +312,30 @@
     if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') showBestiary = !showBestiary;
     if (e.code === 'KeyC' && DA.state.mode === 'title') showBestiary = !showBestiary;
     if (e.code === 'Escape' && showBestiary) showBestiary = false;
-    if (e.code === 'KeyK') {   // screen shake toggle, remembered
-      DA.fx.shakeOn = DA.fx.shakeOn === false;
-      try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
-      DA.announce(DA.fx.shakeOn ? 'SHAKE ON' : 'SHAKE OFF');
-    }
-    if (e.code === 'KeyV' && DA.broadcast) {   // broadcast fx toggle, remembered
-      DA.broadcast.on = !DA.broadcast.on;
-      try { localStorage.setItem('deadset_bfx', DA.broadcast.on ? '1' : '0'); } catch (err) {}
-      DA.announce(DA.broadcast.on ? 'BROADCAST FX ON' : 'BROADCAST FX OFF');
-    }
-    if (e.code === 'KeyB' && DA.state.mode === 'title') toggleBot();
-    if (e.code === 'KeyI' && DA.state.mode === 'title') DA.state = { mode: 'intro', page: 0 };
+    if (e.code === 'KeyK') toggleShake();
+    if (e.code === 'KeyV') toggleFx();
+    if (e.code === 'KeyB' && DA.state.mode === 'title' && !showSettings) toggleBot();
+    if (e.code === 'KeyI' && DA.state.mode === 'title') { showSettings = false; DA.state = { mode: 'intro', page: 0 }; }
     if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
+    // arrow/enter menu navigation on the title + settings screens
+    if (DA.state.mode === 'title' && !showBestiary) {
+      var menu = showSettings ? settingsMenu : titleMenu;
+      var moving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
+                   ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
+      if (moving && menu.length) {
+        var sel = showSettings ? setSel : menuSel;
+        for (var tries = 0; tries < menu.length; tries++) {   // skip locked entries
+          sel = (sel + moving + menu.length) % menu.length;
+          if (!menu[sel].locked) break;
+        }
+        if (showSettings) setSel = sel; else menuSel = sel;
+      }
+      if ((e.code === 'Enter' || e.code === 'Space') && menu.length) {
+        var pick = menu[showSettings ? setSel : menuSel];
+        if (pick && !pick.locked) pick.act();
+      }
+      if (e.code === 'Escape' && showSettings) showSettings = false;
+    }
     if (e.code === 'KeyD' && DA.state.mode === 'title' && window.SLASHTV_DONATE_URL) {
       window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener');
     }
@@ -595,17 +618,47 @@
     if (st.mode !== 'playing') {
       paused = false;
       if (st.goFade > 0) st.goFade -= dt;
-      if (showBestiary && st.mode === 'title') {   // cast page open: fire closes it, nothing starts
-        if (startHeld && !startWasHeld) showBestiary = false;
-        startWasHeld = startHeld;
-        DA.updateFx(dt);
-        return;
-      }
-      if (startHeld && !startWasHeld) {
-        if (st.mode === 'winner' && (st.room.ep || 1) === 1) DA.state = newGame('writers', st);    // straight into Ep 2
-        else if (st.mode === 'winner' && st.room.ep === 2) DA.state = newGame('controlbooth', st); // straight into Ep 3
-        else DA.state = (st.mode === 'title' && load('slashtv_intro') !== '1') ?
-                        { mode: 'intro', page: 0 } : newGame();
+      if (st.mode === 'title') {
+        titleMenu = buildTitleMenu();
+        settingsMenu = buildSettingsMenu();
+        var click = DA.input.consumeClick ? DA.input.consumeClick() : null;
+        var btnTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
+        var tapAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
+        if (showBestiary) {                        // cast page: anything closes it
+          if (click || tapAny || (startHeld && !startWasHeld)) showBestiary = false;
+          startWasHeld = startHeld;
+          DA.updateFx(dt);
+          return;
+        }
+        var menu = showSettings ? settingsMenu : titleMenu;
+        if (click) {                               // mouse: click a button, nothing else starts
+          var ci = hitMenu(menu, click.x, click.y);
+          if (ci >= 0 && !menu[ci].locked) {
+            if (showSettings) setSel = ci; else menuSel = ci;
+            menu[ci].act();
+          }
+        }
+        if (btnTap >= 0 && menu[btnTap] && !menu[btnTap].locked) menu[btnTap].act();
+        // gamepad: d-pad moves the cursor, A activates
+        var padD = DA.input.padButton(13), padU = DA.input.padButton(12), padA = DA.input.padButton(0);
+        if ((padD && !padNavWas.d) || (padU && !padNavWas.u)) {
+          var dir = padD && !padNavWas.d ? 1 : -1;
+          var s2 = showSettings ? setSel : menuSel;
+          for (var tr = 0; tr < menu.length; tr++) {
+            s2 = (s2 + dir + menu.length) % menu.length;
+            if (!menu[s2].locked) break;
+          }
+          if (showSettings) setSel = s2; else menuSel = s2;
+        }
+        if (padA && !padNavWas.a) {
+          var pk = menu[showSettings ? setSel : menuSel];
+          if (pk && !pk.locked) pk.act();
+        }
+        padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
+      } else if (startHeld && !startWasHeld) {     // winner/gameover: fire continues the run
+        if (st.mode === 'winner' && (st.room.ep || 1) === 1) DA.state = newGame('writers', st);
+        else if (st.mode === 'winner' && st.room.ep === 2) DA.state = newGame('controlbooth', st);
+        else DA.state = newGame();
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
@@ -698,7 +751,7 @@
       if (st.act5T <= 0) {
         st.act5T = 9;
         var conf = DA.presenterQuip(st);
-        if (conf) DA.announce(conf);
+        if (conf) (DA.hostSay || DA.announce)(conf);
       }
     }
     DA.updateEnemies(st.enemies, st.players, dt, st.enemyBullets);
@@ -756,10 +809,7 @@
           if (rp.downed) { rp.downed = false; rp.reviveP = 0; rp.hearts = 2; rp.invuln = 1; }
         });
         DA.announce('ROOM CLEAR — TAKE AN EXIT');
-        if (DA.presenterQuip) {
-          var quip = DA.presenterQuip(st);
-          if (quip) DA.announce(quip);
-        }
+        if (DA.hostSay && DA.presenterQuip) DA.hostSay(DA.presenterQuip(st));
       }
       checkExits(st);
     }
@@ -1041,6 +1091,120 @@
   }
 
   // the studio map: shown while choosing an exit, and while paused
+  // ---- the title menu: REAL buttons, not hotkey trivia. Click, tap, arrow
+  // keys + Enter, or gamepad d-pad + A all drive the same list. Locked modes
+  // stay visible with a lock + how to earn them, instead of vanishing.
+  function buildTitleMenu() {
+    var ep2u = ep2Unlocked(), ep3u = ep3Unlocked(), endu = endlessUnlocked();
+    var L = 170, R = 665, BW = 445, BH = 48, Y0 = 372, G = 60;
+    var m = [];
+    m.push({ x: L, y: Y0, w: BW, h: BH, color: '#7ee081', primary: true,
+             label: '▶  PLAY — EPISODE 1', state: 'PILOT SEASON',
+             act: function () { DA.state = load('slashtv_intro') !== '1' ? { mode: 'intro', page: 0 } : newGame(); } });
+    m.push({ x: L, y: Y0 + G, w: BW, h: BH, color: '#c95d63', locked: !ep2u,
+             label: 'EPISODE 2: SWEEPS WEEK',
+             state: ep2u ? (load('deadset_ep2') === '1' ? 'BEATEN ✓' : '') : '🔒 beat Episode 1',
+             act: function () { DA.state = newGame('writers'); } });
+    m.push({ x: L, y: Y0 + G * 2, w: BW, h: BH, color: '#2fd7c4', locked: !ep3u,
+             label: 'EPISODE 3: LIVE FINALE',
+             state: ep3u ? (load('deadset_ep3') === '1' ? 'BEATEN ✓' : '') : '🔒 beat Episode 2',
+             act: function () { DA.state = newGame('controlbooth'); } });
+    m.push({ x: L, y: Y0 + G * 3, w: BW, h: BH, color: '#b78bff',
+             label: 'SYNDICATION', state: 'tonight: #' + synSeed(),
+             act: function () { DA.state = newGame(DA.generateEpisode(synSeed()).startId); } });
+    m.push({ x: L, y: Y0 + G * 4, w: BW, h: BH, color: '#5bc8d6', locked: !endu,
+             label: 'ENDLESS ARENA',
+             state: endu ? 'best: wave ' + (load('deadset_best_waves') || '0') : '🔒 beat Episode 1',
+             act: function () { DA.state = newGame('endless'); } });
+    var hosting = DA.net && DA.net.status === 'hosting';
+    m.push({ x: R, y: Y0, w: BW, h: BH, color: botOn ? '#a8c8d8' : '#f2f2e9',
+             label: '🤖 CAM-BOT PARTNER', state: botOn ? 'ON ✓' : 'OFF',
+             act: toggleBot });
+    m.push({ x: R, y: Y0 + G, w: BW, h: BH, color: '#9ad7ff', locked: !DA.net,
+             label: '🌍 HOST ONLINE CO-OP',
+             state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
+             act: function () { if (DA.net) DA.net.host(); } });
+    m.push({ x: R, y: Y0 + G * 2, w: BW, h: BH, color: '#e8d44d',
+             label: "🧟 TONIGHT'S CAST", state: 'know your monsters',
+             act: function () { showBestiary = true; } });
+    m.push({ x: R, y: Y0 + G * 3, w: BW, h: BH, color: '#f2f2e9',
+             label: '⚙ SETTINGS', state: 'sound · music · effects',
+             act: function () { showSettings = true; setSel = 0; } });
+    if (window.SLASHTV_DONATE_URL) {
+      m.push({ x: R, y: Y0 + G * 4, w: BW, h: BH, color: '#e8d44d',
+               label: '💛 SUPPORT THE SHOW', state: 'optional — no ads, ever',
+               act: function () { window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener'); } });
+    }
+    return m;
+  }
+  function buildSettingsMenu() {
+    var BW = 560, X = (DA.W - BW) / 2, Y0 = 312, G = 55, BH = 46;
+    function row(i, label, state, hint, act) {
+      return { x: X, y: Y0 + G * i, w: BW, h: BH, color: '#f2f2e9',
+               label: label, state: state, hint: hint, act: act };
+    }
+    return [
+      row(0, '🔊 SOUND', DA.soundOn && DA.soundOn() ? 'ON ✓' : 'OFF', 'M', function () { DA.toggleMute(); }),
+      row(1, '🎵 MUSIC', DA.musicOn && DA.musicOn() ? 'ON ✓' : 'OFF', 'N', function () { DA.toggleMusic(); }),
+      row(2, '💥 SCREEN SHAKE', DA.fx.shakeOn !== false ? 'ON ✓' : 'OFF', 'K', toggleShake),
+      row(3, '📺 BROADCAST FX', DA.broadcast && DA.broadcast.on ? 'ON ✓' : 'OFF', 'V', toggleFx),
+      row(4, '📳 HAPTICS (rumble/vibration)', DA.hapticsOn && DA.hapticsOn() ? 'ON ✓' : 'OFF', '', function () { DA.toggleHaptics(); }),
+      row(5, '📖 REPLAY THE STORY INTRO', '', 'I', function () { showSettings = false; DA.state = { mode: 'intro', page: 0 }; }),
+      row(6, '← BACK', '', 'Esc', function () { showSettings = false; })
+    ];
+  }
+  function hitMenu(menu, x, y) {
+    for (var i = 0; i < menu.length; i++) {
+      var b = menu[i];
+      if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return i;
+    }
+    return -1;
+  }
+  DA.titleHit = function (x, y) {   // touch taps route through input.js as 'btn:N'
+    if (DA.state.mode !== 'title' || showBestiary) return -1;
+    return hitMenu(showSettings ? settingsMenu : titleMenu, x, y);
+  };
+  function drawMenu(ctx, menu, sel) {
+    var mp = DA.input.mousePos ? DA.input.mousePos() : null;
+    for (var i = 0; i < menu.length; i++) {
+      var b = menu[i];
+      var hover = mp && hitMenu([b], mp.x, mp.y) === 0 && !b.locked;
+      if (hover) sel = i;
+      var on = i === sel && !b.locked;
+      ctx.fillStyle = b.locked ? 'rgba(16, 16, 22, 0.85)' :
+                      (on ? 'rgba(52, 52, 70, 0.96)' : 'rgba(26, 26, 36, 0.92)');
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(b.x, b.y, b.w, b.h, 9); else ctx.rect(b.x, b.y, b.w, b.h);
+      ctx.fill();
+      ctx.strokeStyle = b.locked ? '#2c2c38' : (on ? '#7ee081' : (b.primary ? b.color : '#4a4a5c'));
+      ctx.lineWidth = on || b.primary ? 2.5 : 1.5;
+      ctx.stroke();
+      ctx.textAlign = 'left';
+      ctx.font = 'bold ' + (b.primary ? 22 : 19) + 'px monospace';
+      ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
+      ctx.fillText(b.label, b.x + 18, b.y + b.h / 2 + 7);
+      if (b.state) {
+        ctx.textAlign = 'right';
+        ctx.font = (b.locked ? '' : 'bold ') + '14px monospace';
+        ctx.fillStyle = b.locked ? '#4a4a58' : '#8888a0';
+        ctx.fillText(b.state, b.x + b.w - 14, b.y + b.h / 2 + 5);
+      }
+      if (b.hint) {
+        ctx.textAlign = 'right';
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#55556a';
+        ctx.fillText(b.hint, b.x + b.w - 14, b.y + b.h - 8);
+      }
+      if (on) {                                     // selection chevron
+        ctx.textAlign = 'left';
+        ctx.font = 'bold 19px monospace';
+        ctx.fillStyle = '#7ee081';
+        ctx.fillText('›', b.x + 5, b.y + b.h / 2 + 7);
+      }
+    }
+    return sel;
+  }
+
   // the pause-screen bestiary: live sprites drawn by the real enemy renderer,
   // threat lines from the same table the first-encounter callouts use — so
   // this page can never drift out of date with the actual game
@@ -1089,6 +1253,71 @@
     ctx.fillStyle = '#8888a0';
     ctx.fillText('— ' + (st.room.ep === 'syn' ? "TONIGHT'S SYNDICATED EPISODE" :
                          (st.room.endless ? 'ENDLESS ARENA' : 'EPISODE ' + (st.room.ep || 1))), 100, 623);
+    ctx.globalAlpha = 1;
+  }
+
+  // HOST CAM: the presenter pops up in a corner window, talking head + caption,
+  // whenever he has something to say — like a real broadcast's commentary box
+  function drawHostCam(ctx) {
+    var hst = DA.fx.host;
+    if (!hst) return;
+    if (DA.state && DA.state.introCardT > 0) return;   // the title card owns this corner
+    var a = Math.max(0, Math.min(1, (hst.max - hst.t) / 0.25, hst.t / 0.4));
+    var x = 14, y = 545, w = 478, h = 118;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(8, 8, 14, 0.93)';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h);
+    ctx.fill();
+    ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 11px monospace';
+    ctx.fillStyle = '#d43a4b';
+    if (Math.floor(hst.t * 3) % 2 === 0) { ctx.beginPath(); ctx.arc(x + 15, y + 13, 3.5, 0, 7); ctx.fill(); }
+    ctx.fillText('HOST CAM', x + 24, y + 17);
+    var bx = x + 12, by = y + 26, bs = 80;              // the talking head
+    ctx.fillStyle = '#1c1c28';
+    ctx.fillRect(bx, by, bs, bs);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
+    ctx.fillStyle = '#d4a017';                          // gold suit shoulders
+    ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.56, bs * 0.44, 0, 3.14, 6.29); ctx.fill();
+    ctx.fillStyle = '#f2f2e9';                          // shirt + power tie
+    ctx.fillRect(bx + bs / 2 - 8, by + bs - 20, 16, 20);
+    ctx.fillStyle = '#8c1c2c';
+    ctx.fillRect(bx + bs / 2 - 3, by + bs - 20, 6, 20);
+    var hx = bx + bs / 2, hy = by + bs * 0.42, hr = bs * 0.29;
+    ctx.fillStyle = '#e0b08c';                          // head
+    ctx.beginPath(); ctx.arc(hx, hy, hr, 0, 7); ctx.fill();
+    ctx.fillStyle = '#b8b0a0';                          // slick grey hair
+    ctx.beginPath(); ctx.arc(hx, hy - hr * 0.3, hr * 1.04, 3.3, 6.12); ctx.fill();
+    ctx.fillStyle = '#111';                             // twin shades
+    ctx.fillRect(hx - hr * 0.85, hy - hr * 0.32, hr * 0.7, hr * 0.4);
+    ctx.fillRect(hx + hr * 0.15, hy - hr * 0.32, hr * 0.7, hr * 0.4);
+    ctx.fillRect(hx - hr * 0.2, hy - hr * 0.22, hr * 0.4, 3);
+    var open = Math.abs(Math.sin(performance.now() / 90)) * (hst.t > 0.6 ? 1 : 0.15);
+    ctx.fillStyle = '#5c2a2a';                          // the mouth flaps while he talks
+    ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.34, hr * (0.07 + 0.22 * open), 0, 0, 7); ctx.fill();
+    ctx.restore();
+    ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx, by, bs, bs);
+    if (!hst.lines) {                                   // wrap the caption once
+      ctx.font = 'bold 15px monospace';
+      hst.lines = [];
+      var words = hst.text.split(' '), cur = '';
+      var maxW = w - bs - 42;
+      for (var wd = 0; wd < words.length; wd++) {
+        var tryLine = cur ? cur + ' ' + words[wd] : words[wd];
+        if (cur && ctx.measureText(tryLine).width > maxW) { hst.lines.push(cur); cur = words[wd]; }
+        else cur = tryLine;
+      }
+      if (cur) hst.lines.push(cur);
+    }
+    ctx.font = 'bold 15px monospace';
+    ctx.fillStyle = '#f2f2e9';
+    for (var li = 0; li < hst.lines.length && li < 4; li++) {
+      ctx.fillText(hst.lines[li], bx + bs + 14, y + 44 + li * 20);
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -1359,88 +1588,51 @@
     if (st.mode === 'title') {
       if (showBestiary) { drawBestiary(ctx); return; }
       drawArena(ctx, {});
-      var hint = DA.input.touchActive() ?
-        'left thumb moves — right thumb aims & fires — tap to start' :
-        (DA.input.gamepadConnected() ?
-          '🎮 gamepad detected — left stick moves, push right stick to fire that way' :
-          'WASD moves — mouse click or ARROW KEYS fire (or plug in a gamepad)');
-      var lines = [
-        { text: 'SLASH TV', font: 'bold 96px monospace', color: '#e8d44d', y: 240 },
-        { text: 'THE FINAL BROADCAST', font: 'bold 32px monospace', color: '#d43a4b', y: 290 },
-        { text: tagline, font: '21px monospace', color: '#f2f2e9', y: 328 }
-      ];
-      // net status sits in the fixed gap between the tagline and the press-fire
-      // line — at most one of these two ever shows, so a fixed slot is safe
+      drawAttract(ctx);                              // the parade sits behind everything
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.72)';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 84px monospace'; ctx.fillStyle = '#e8d44d';
+      ctx.fillText('SLASH TV', DA.W / 2, 160);
+      ctx.font = 'bold 28px monospace'; ctx.fillStyle = '#d43a4b';
+      ctx.fillText('THE FINAL BROADCAST', DA.W / 2, 202);
+      ctx.font = '19px monospace'; ctx.fillStyle = '#f2f2e9';
+      ctx.fillText(tagline, DA.W / 2, 238);
+      if (showSettings) {
+        ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
+        ctx.fillText('⚙ SETTINGS', DA.W / 2, 288);
+        setSel = drawMenu(ctx, settingsMenu, setSel);
+        DA.drawFxOver(ctx);
+        drawScreenFx(ctx);
+        return;
+      }
+      // one-line status strip: hosting / tonight's leader / personal best
+      var status = [];
       if (DA.net && DA.net.status === 'hosting') {
-        lines.push({ text: 'ROOM ' + (DA.net.code || '····') +
-                           (DA.net.remoteJoined ? ' — CONTESTANT 2 READY' : ' — waiting for contestant 2'),
-                     font: 'bold 22px monospace', color: '#9ad7ff', y: 364 });
+        status.push('ROOM ' + (DA.net.code || '····') +
+                    (DA.net.remoteJoined ? ' — CONTESTANT 2 READY' : ' — waiting for contestant 2'));
       } else if (DA.net && DA.net.status === 'error') {
-        lines.push({ text: 'RELAY ERROR — see server/README.md', font: 'bold 18px monospace', color: '#d43a4b', y: 364 });
+        status.push('RELAY ERROR — online co-op unavailable');
       }
-      lines.push({ text: 'PRESS FIRE — EPISODE 1: PILOT SEASON', font: 'bold 28px monospace', color: '#7ee081', y: 396 });
-      // dynamic vertical stack from here down: a running cursor, not fixed
-      // offsets, so no combination of unlocks can ever overlap two lines
-      var cy = 434;
-      if (ep2Unlocked()) {
-        lines.push({ text: '2 (or 🎮 X) — EPISODE 2: SWEEPS WEEK' + (load('deadset_ep2') === '1' ? ' ✓' : ''),
-                     font: 'bold 24px monospace', color: '#c95d63', y: cy });
-        cy += 32;
-      }
-      if (ep3Unlocked()) {
-        lines.push({ text: '4 (or 🎮 B/Circle) — EPISODE 3: LIVE FINALE' + (load('deadset_ep3') === '1' ? ' ✓' : ''),
-                     font: 'bold 24px monospace', color: '#2fd7c4', y: cy });
-        cy += 32;
-      }
-      if (endlessUnlocked()) {
-        lines.push({ text: 'E (or 🎮 Y) — ENDLESS ARENA — best: wave ' + (load('deadset_best_waves') || '0'),
-                     font: 'bold 22px monospace', color: '#5bc8d6', y: cy });
-        cy += 30;
-      }
-      titleZones.syn = cy;                    // tap target follows the drawn line
-      lines.push({ text: '3 (or 🎮 RB) — SYNDICATION — tonight: #' + synSeed(),
-                    font: 'bold 22px monospace', color: '#b78bff', y: cy });
-      cy += 30;
       if (DA.lb && DA.lb.today && DA.lb.today.length && DA.lb.todaySeed === synSeed()) {
-        var podium = DA.lb.today.slice(0, 3).map(function (s, i) {
-          return (i + 1) + '. ' + s.name + ' $' + s.score.toLocaleString('en-US');
-        }).join('   ');
-        lines.push({ text: '🏆 ' + podium, font: '16px monospace', color: '#b78bff', y: cy });
-        cy += 26;
+        status.push('🏆 tonight: ' + DA.lb.today[0].name + ' $' + DA.lb.today[0].score.toLocaleString('en-US'));
       }
       var best = load('deadset_best');
-      if (best) {
-        lines.push({ text: 'BEST: $' + parseInt(best, 10).toLocaleString('en-US'),
-                     font: 'bold 20px monospace', color: '#e8d44d', y: cy });
-        cy += 28;
+      if (best) status.push('your best: $' + parseInt(best, 10).toLocaleString('en-US'));
+      if (status.length) {
+        ctx.font = 'bold 15px monospace'; ctx.fillStyle = '#9ad7ff';
+        ctx.fillText(status.join('   ·   '), DA.W / 2, 292);
       }
-      cy += 12;
-      lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: cy });
-      cy += 26;
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: cy });
-      cy += 30;
-      titleZones.bot = cy;
-      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — 2-PLAYER with CAM-BOT (AI partner): ' + (botOn ? 'ON ✓' : 'OFF'),
-                   font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
-      cy += 28;
-      if (DA.net) {
-        lines.push({ text: 'H — 2-PLAYER ONLINE: host a game, send a friend the link', font: '17px monospace', color: '#666677', y: cy });
-        cy += 26;
-      }
-      titleZones.cast = cy;
-      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'C') + " — TONIGHT'S CAST: meet the monsters",
-                   font: '17px monospace', color: '#8888a0', y: cy });
-      cy += 26;
-      if (window.SLASHTV_DONATE_URL) {              // inert until Ben configures a link
-        lines.push({ text: 'D — 💛 SUPPORT THE SHOW (optional — no ads, ever)',
-                     font: '16px monospace', color: '#e8d44d', y: cy });
-        cy += 24;
-      }
-      if (DA.input.touchActive() && window.innerHeight > window.innerWidth) {
-        lines.push({ text: '📺 rotate your phone for the full show', font: 'bold 20px monospace', color: '#e8d44d', y: cy });
-      }
-      drawAttract(ctx);         // the parade sits behind the copy, never over it
-      drawCenteredScreen(ctx, lines);
+      menuSel = drawMenu(ctx, titleMenu, menuSel);
+      var hint = DA.input.touchActive() ?
+        (window.innerHeight > window.innerWidth ? '📺 rotate your phone for the full show' :
+          'in the game: left thumb moves — right thumb aims & fires') :
+        (DA.input.gamepadConnected() ?
+          '🎮 d-pad + A picks · in the game: left stick moves, right stick fires' :
+          '↑↓ + Enter or click · in the game: WASD moves, mouse or arrow keys fire');
+      ctx.textAlign = 'center';
+      ctx.font = '16px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText(hint, DA.W / 2, 700);
       DA.drawFxOver(ctx);
       drawTouchUI(ctx);
       drawScreenFx(ctx);
@@ -1454,6 +1646,7 @@
     drawScreenFx(ctx);
     drawHud(ctx, st);
     if (st.mode === 'playing' && st.introCardT > 0) drawIntroCard(ctx, st);
+    if (st.mode === 'playing') drawHostCam(ctx);
     if (st.mode === 'playing' && st.player.hearts === 1) {  // last-heart warning pulse
       var pulse = 0.14 + 0.1 * Math.sin(performance.now() / 260);
       ctx.globalAlpha = pulse;

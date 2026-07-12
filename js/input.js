@@ -94,6 +94,7 @@
         if (zone === 'bot') botTapped = true;
         else if (zone === 'syn') synTapped = true;
         else if (zone === 'cast') castTapped = true;
+        else if (typeof zone === 'string' && zone.indexOf('btn:') === 0) btnTapped = +zone.slice(4);
         else pauseTapped = true;
         continue;
       }
@@ -132,7 +133,14 @@
     var p = DA.screenToCanvas(e.clientX, e.clientY, window.innerWidth, window.innerHeight);
     mouse.x = p.x; mouse.y = p.y; device = 'keyboard';
   });
-  window.addEventListener('mousedown', function () { mouse.down = true; device = 'keyboard'; });
+  var clickPt = null, btnTapped = -1;
+  window.addEventListener('mousedown', function (e) {
+    mouse.down = true; device = 'keyboard';
+    if (e && e.clientX != null) {
+      var p = DA.screenToCanvas(e.clientX, e.clientY, window.innerWidth, window.innerHeight);
+      clickPt = { x: p.x, y: p.y };
+    }
+  });
   window.addEventListener('mouseup', function () { mouse.down = false; });
 
   // playerX/playerY: needed to turn mouse position into an aim direction
@@ -181,6 +189,9 @@
     touchSticks: function () { return sticks; },
     consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
     consumeAnyTap: function () { var v = anyTapped; anyTapped = false; return v; },
+    consumeClick: function () { var v = clickPt; clickPt = null; return v; },
+    consumeBtnTap: function () { var v = btnTapped; btnTapped = -1; return v; },
+    mousePos: function () { return { x: mouse.x, y: mouse.y }; },
     consumeBotTap: function () { var v = botTapped; botTapped = false; return v; },
     consumeCastTap: function () { var v = castTapped; castTapped = false; return v; },
     consumeSynTap: function () { var v = synTapped; synTapped = false; return v; },
