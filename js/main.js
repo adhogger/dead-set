@@ -1140,6 +1140,12 @@
     if (DA.broadcast) DA.broadcast.drawFrame(ctx, st);
     drawScreenFx(ctx);
     drawHud(ctx, st);
+    if (st.mode === 'playing' && st.player.hearts === 1) {  // last-heart warning pulse
+      var pulse = 0.14 + 0.1 * Math.sin(performance.now() / 260);
+      ctx.globalAlpha = pulse;
+      ctx.drawImage(bloodVignette, 0, 0);
+      ctx.globalAlpha = 1;
+    }
     if (DA.broadcast) DA.broadcast.drawGlitch(ctx);
     if (st.mode === 'dying') {
       ctx.globalAlpha = Math.min(1, (DA.DEATH_T - st.deathT) / 0.9);

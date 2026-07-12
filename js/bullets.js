@@ -9,13 +9,13 @@
     pistol:  { label: 'PISTOL',  color: '#e8d44d', rate: 0.11,  pellets: 1, fan: 0,    jitter: 0,    speed: 700,  dmg: 1 },
     triple:  { label: 'TRIPLE',  color: '#ff9f1c', rate: 0.14,  pellets: 3, fan: 0.44, jitter: 0,    speed: 700,  dmg: 1 },
     smg:     { label: 'SMG',     color: '#7ee081', rate: 0.06,  pellets: 1, fan: 0,    jitter: 0.09, speed: 780,  dmg: 1 },
-    shotgun: { label: 'SHOTGUN', color: '#c95d63', rate: 0.55,  pellets: 7, fan: 0.55, jitter: 0.05, speed: 620,  dmg: 1, kick: 130 },
+    shotgun: { label: 'SHOTGUN', color: '#c95d63', rate: 0.55,  pellets: 7, fan: 0.55, jitter: 0.05, speed: 620,  dmg: 1, kick: 130, shake: 5 },
     minigun: { label: 'MINIGUN', color: '#5bc8d6', rate: 0.045, pellets: 1, fan: 0,    jitter: 0.18, speed: 720,  dmg: 1, kick: 22 },
     railgun: { label: 'RAILGUN', color: '#b78bff', rate: 0.45,  pellets: 1, fan: 0,    jitter: 0,    speed: 1200, dmg: 3, pierce: true },
     flamer:  { label: 'FLAMETHROWER', color: '#ff5b1f', rate: 0.035, pellets: 1, fan: 0, jitter: 0.14,
                speed: 480, dmg: 1, range: 190 },
     rocket:  { label: 'ROCKET LAUNCHER', color: '#ff3b3b', rate: 0.85, pellets: 1, fan: 0, jitter: 0,
-               speed: 540, dmg: 6, splash: 3, splashR: 100 }
+               speed: 540, dmg: 6, splash: 3, splashR: 100, shake: 8 }
   };
 
   DA.fireBullet = function (arr, x, y, dx, dy, gun) {
@@ -49,6 +49,7 @@
                     p.bot ? Object.assign({ botOwned: true }, g) : g);
     }
     if (g.kick) { p.vx -= Math.cos(base) * g.kick; p.vy -= Math.sin(base) * g.kick; }
+    if (g.shake && DA.addShake) DA.addShake(g.shake);
     if (DA.audio) DA.audio.shot();
     return g.pellets;
   };

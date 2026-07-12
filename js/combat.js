@@ -38,6 +38,7 @@
       if (e === exclude || e.isBoss) continue;
       if (DA.dist2(x, y, e.x, e.y) >= radius * radius) continue;
       e.hp -= dmg;
+      e.hitFlash = 0.12;
       if (e.hp > 0) continue;
       st.enemies.splice(i, 1);
       st.score += e.score;                    // splash kills: no combo bump
@@ -58,6 +59,7 @@
           if (b.pierce) b.hit.push(e);
           else st.bullets.splice(j, 1);
           e.hp -= (b.dmg || 1);
+          e.hitFlash = 0.12;
           if (st.stats && !b.bot) st.stats.hits++;   // accuracy tracks the human
           if (b.splash) DA.explodeSplash(st, b.x, b.y, b.splash, b.splashR, e);
           if (e.hp <= 0) {

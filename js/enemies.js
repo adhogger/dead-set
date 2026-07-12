@@ -61,6 +61,7 @@
       var e = arr[i];
       var player = DA.nearestPlayer(players, e.x, e.y);
       if (e.grace > 0) e.grace -= dt;
+      if (e.hitFlash > 0) e.hitFlash -= dt;
       if (e.isBoss) continue; // the boss moves itself (js/boss.js)
       var sp = e.speed;
       if (e.grace > 0) sp *= 0.5;             // still stepping through the door
@@ -161,6 +162,7 @@
       if (e.isBoss) continue;
       if (DA.dist2(x, y, e.x, e.y) >= BLAST_RADIUS * BLAST_RADIUS) continue;
       e.hp -= BLAST_DMG;
+      e.hitFlash = 0.12;
       if (e.hp > 0) continue;
       st.enemies.splice(i, 1);
       st.score += e.score;                               // blast kills: no combo bump
@@ -182,7 +184,7 @@
       ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
       var br = e.r * (1 + Math.sin(e.wobble * 2) * 0.06); // shuffling bob
-      ctx.fillStyle = lit ? '#fff3b0' : e.color; // fuse lit: strobe warning
+      ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : (lit ? '#fff3b0' : e.color); // fuse lit: strobe warning; hitFlash: fresh damage
       ctx.beginPath(); ctx.arc(e.x, e.y, br, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.35)';     // body outline
       ctx.lineWidth = 2;
