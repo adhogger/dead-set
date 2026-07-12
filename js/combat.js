@@ -2,19 +2,18 @@
   // Effect/announcer hooks (DA.onKill, DA.onPlayerHurt) are optional so this
   // file stays testable without the effects layer loaded.
   // The multiplier is earned: every KILLS_PER_STEP kills in an unbroken chain
-  // raise it one step; a 4s gap resets it, and taking a hit HALVES it. Losing
-  // half a hot streak stings; losing all of it just made players ignore it.
-  var COMBO_CAP = 9, COMBO_WINDOW = 4, KILLS_PER_STEP = 6;
+  // raise it one step — with NO ceiling: it climbs until the player takes a
+  // hit (which HALVES it) or the chain goes cold for 4s (which resets it).
+  // Losing half a hot streak stings; losing all of it made players ignore it.
+  var COMBO_WINDOW = 4, KILLS_PER_STEP = 8;
   DA.COMBO_STEP = KILLS_PER_STEP;      // the HUD draws chain progress from this
   DA.bumpCombo = function (st) {
     st.comboKills = (st.comboKills || 0) + 1;
     st.comboTimer = COMBO_WINDOW;
     if (st.comboKills >= KILLS_PER_STEP) {
       st.comboKills = 0;
-      if (st.combo < COMBO_CAP) {
-        st.combo++; st.comboPopT = 0.3;
-        if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);
-      }
+      st.combo++; st.comboPopT = 0.3;
+      if (DA.audio && DA.audio.comboUp) DA.audio.comboUp(st.combo);
     }
   };
   DA.updateCombo = function (st, dt) {

@@ -633,17 +633,19 @@ test('announcements show one at a time from a queue', function () {
 });
 
 // combo tests
-test('combo steps every 6 chained kills; timeouts reset, hits halve', function () {
+test('combo steps every 8 chained kills, uncapped; timeouts reset, hits halve', function () {
   var st = { combo: 1, comboTimer: 0 };
-  for (var i = 0; i < 5; i++) DA.bumpCombo(st);
-  assert(st.combo === 1, '5 kills is not enough for a step');
+  for (var i = 0; i < 7; i++) DA.bumpCombo(st);
+  assert(st.combo === 1, '7 kills is not enough for a step');
   DA.bumpCombo(st);
-  assert(st.combo === 2, '6th kill earns x2');
-  for (i = 0; i < 12; i++) DA.bumpCombo(st);
-  assert(st.combo === 4, '12 more kills earn two more steps');
+  assert(st.combo === 2, '8th kill earns x2');
+  for (i = 0; i < 16; i++) DA.bumpCombo(st);
+  assert(st.combo === 4, '16 more kills earn two more steps');
+  for (i = 0; i < 8 * 10; i++) DA.bumpCombo(st);
+  assert(st.combo === 14, 'no ceiling: the streak climbs past x9');
   DA.updateCombo(st, 5);            // chain goes cold
   assert(st.combo === 1, 'timeout resets');
-  for (i = 0; i < 18; i++) DA.bumpCombo(st);
+  for (i = 0; i < 24; i++) DA.bumpCombo(st);
   assert(st.combo === 4);
   DA.comboHit(st);                  // player got hit
   assert(st.combo === 2 && st.comboKills === 0, 'a hit halves the multiplier');
