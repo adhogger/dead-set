@@ -82,14 +82,18 @@
 
   // ---- enemy projectiles (the boss's "paparazzi flashes") ----
   var EB_SPEED = 200;
-  DA.fireEnemyBullet = function (arr, x, y, dx, dy) {
-    arr.push({ id: DA.newId(), x: x, y: y, dx: dx, dy: dy, r: 6 });
+  // opts: optional { speed, color, r } — spitter globs fly slower and read green
+  DA.fireEnemyBullet = function (arr, x, y, dx, dy, opts) {
+    arr.push({ id: DA.newId(), x: x, y: y, dx: dx, dy: dy,
+               r: (opts && opts.r) || 6, speed: (opts && opts.speed) || 0,
+               color: opts && opts.color });
   };
   // st is optional (sims/tests may omit it) — used for combo reset on hit
   DA.updateEnemyBullets = function (arr, player, dt, st) {
     for (var i = arr.length - 1; i >= 0; i--) {
       var b = arr[i];
-      b.x += b.dx * EB_SPEED * dt; b.y += b.dy * EB_SPEED * dt;
+      var sp = b.speed || EB_SPEED;
+      b.x += b.dx * sp * dt; b.y += b.dy * sp * dt;
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
         arr.splice(i, 1);
         continue;
@@ -118,7 +122,7 @@
   DA.drawEnemyBullets = function (ctx, arr) {
     for (var i = 0; i < arr.length; i++) {
       var b = arr[i];
-      ctx.fillStyle = '#ff7b54';
+      ctx.fillStyle = b.color || '#ff7b54';
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill();
       ctx.fillStyle = '#ffe8d6';
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 0.45, 0, 7); ctx.fill();

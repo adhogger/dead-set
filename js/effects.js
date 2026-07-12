@@ -226,7 +226,8 @@
     sprinter: 'SPRINTER — FAST. DO NOT STAND STILL.',
     boomer:   "BOOMER — DON'T LET IT GET CLOSE. SHOOT FROM RANGE.",
     stalker:  'STALKER — FADES OUT. FASTER WHEN YOU CAN BARELY SEE IT.',
-    brute:    'BRUTE — SLOW, BUT IT HITS LIKE A CANCELLED CONTRACT.'
+    brute:    'BRUTE — SLOW, BUT IT HITS LIKE A CANCELLED CONTRACT.',
+    spitter:  'SPITTER — LOBS BILE FROM ACROSS THE SET. SIDESTEP OR CLOSE IN.'
   };
   DA.threatLine = function (type) { return THREATS[type]; };
 

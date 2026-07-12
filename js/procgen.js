@@ -22,9 +22,9 @@
   var SHAPES = [{ w: 3, h: 1 }, { w: 4, h: 1 }, { w: 3, h: 2 }, { w: 2, h: 2 }, { w: 4, h: 2 }];
 
   // spawn-group templates per type; costs express lethality per body
-  var COST = { shambler: 1, swarmer: 0.6, sprinter: 2.5, boomer: 4, stalker: 5, brute: 6 };
-  var UNLOCK = { swarmer: 1, sprinter: 1, boomer: 2, brute: 2, stalker: 3 };
-  var MINIMUM = { swarmer: 16, sprinter: 8, boomer: 2, brute: 3, stalker: 3 };
+  var COST = { shambler: 1, swarmer: 0.6, sprinter: 2.5, boomer: 4, stalker: 5, brute: 6, spitter: 4.5 };
+  var UNLOCK = { swarmer: 1, sprinter: 1, boomer: 2, brute: 2, stalker: 3, spitter: 2 };
+  var MINIMUM = { swarmer: 16, sprinter: 8, boomer: 2, brute: 3, stalker: 3, spitter: 2 };
 
   function pick(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 
@@ -51,6 +51,7 @@
         else if (type === 'boomer') g.interval = Math.max(4.5, 8 - depth * 0.7);
         else if (type === 'brute') g.interval = Math.max(4.5, 8 - depth * 0.6);
         else if (type === 'stalker') g.interval = Math.max(1.7, 2.6 - depth * 0.2);
+        else if (type === 'spitter') g.interval = Math.max(4, 7 - depth * 0.5);
         groups.push(g);
       }
       waves.push({ doors: DA.clamp(1 + depth + i, 1, 3), groups: groups });

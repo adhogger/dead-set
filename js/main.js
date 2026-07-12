@@ -215,6 +215,7 @@
   var startWasHeld = false;   // require a release between screens
   var endlessWasHeld = false;
   var paused = false;
+  var showBestiary = false;   // pause-screen "who's who" overlay
   var pauseWasHeld = false;
   var botWasHeld = false;
 
@@ -263,6 +264,7 @@
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
     if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
+    if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') showBestiary = !showBestiary;
     if (e.code === 'KeyK') {   // screen shake toggle, remembered
       DA.fx.shakeOn = DA.fx.shakeOn === false;
       try { localStorage.setItem('deadset_shake', DA.fx.shakeOn ? '1' : '0'); } catch (err) {}
@@ -543,6 +545,7 @@
     // gamepad Start button or the touch corner button pauses (edge-triggered)
     var pauseHeld = DA.input.padButton(9);
     if (pauseHeld && !pauseWasHeld) paused = !paused;
+    if (!paused) showBestiary = false;
     pauseWasHeld = pauseHeld;
     if (DA.input.consumePauseTap()) paused = !paused;
     if (paused) return;
@@ -580,7 +583,7 @@
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
     }
-    DA.updateEnemies(st.enemies, st.players, dt);
+    DA.updateEnemies(st.enemies, st.players, dt, st.enemyBullets);
     DA.updateBoomers(st, dt);
     if (DA.updateHazards) DA.updateHazards(st, dt);
     DA.updateEnemyBullets(st.enemyBullets, st.players, dt, st);
@@ -877,6 +880,33 @@
   }
 
   // the studio map: shown while choosing an exit, and while paused
+  // the pause-screen bestiary: live sprites drawn by the real enemy renderer,
+  // threat lines from the same table the first-encounter callouts use — so
+  // this page can never drift out of date with the actual game
+  var BESTIARY_ORDER = ['shambler', 'swarmer', 'sprinter', 'boomer', 'stalker', 'brute', 'spitter'];
+  function drawBestiary(ctx) {
+    ctx.fillStyle = 'rgba(10, 10, 15, 0.97)';
+    ctx.fillRect(0, 0, DA.W, DA.H);
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 34px monospace';
+    ctx.fillStyle = '#e8d44d';
+    ctx.fillText("TONIGHT'S CAST", DA.W / 2, 74);
+    for (var i = 0; i < BESTIARY_ORDER.length; i++) {
+      var y = 132 + i * 74;
+      var fake = DA.makeEnemy(BESTIARY_ORDER[i], 330, y);
+      fake.wobble = performance.now() / 200 + i;   // idle shuffle, out of sync per row
+      DA.drawEnemies(ctx, [fake]);
+      ctx.textAlign = 'left';
+      ctx.font = '18px monospace';
+      ctx.fillStyle = '#f2f2e9';
+      ctx.fillText(DA.threatLine ? DA.threatLine(BESTIARY_ORDER[i]) : BESTIARY_ORDER[i].toUpperCase(), 390, y + 6);
+    }
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 20px monospace';
+    ctx.fillStyle = '#7ee081';
+    ctx.fillText('B or Esc — back to the show', DA.W / 2, 682);
+  }
+
   function drawMap(ctx, st) {
     var ep = st.room.ep || 1;
     var maxX = 0, maxY = 0, mid, mroom;
@@ -1269,10 +1299,12 @@
     if (showDebug) drawDebug(ctx);
 
     if (paused && st.mode === 'playing') {
+      if (showBestiary) { drawBestiary(ctx); return; }
       drawCenteredScreen(ctx, [
         { text: 'PAUSED', font: 'bold 72px monospace', color: '#e8d44d', y: 300 },
         { text: 'WE\'LL BE RIGHT BACK', font: '24px monospace', color: '#8888a0', y: 345 },
-        { text: 'Esc / P / 🎮 Start to resume', font: 'bold 22px monospace', color: '#7ee081', y: 420 }
+        { text: 'Esc / P / 🎮 Start to resume', font: 'bold 22px monospace', color: '#7ee081', y: 420 },
+        { text: 'B — WHO\'S WHO (know your monsters)', font: '19px monospace', color: '#8888a0', y: 458 }
       ]);
       if (st.room.map) drawMap(ctx, st);
       return;

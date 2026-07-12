@@ -157,7 +157,8 @@
                              { type: 'boomer',   count: 3,  interval: 6 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 1.1, burst: 7 },
                              { type: 'stalker',  count: 4,  interval: 1.8 },
-                             { type: 'boomer',   count: 4,  interval: 5 }] }
+                             { type: 'boomer',   count: 4,  interval: 5 },
+                             { type: 'spitter',  count: 2,  interval: 7 }] }
       ]
     },
     serverroom: {
@@ -171,7 +172,8 @@
         { doors: 3, groups: [{ type: 'shambler', count: 135, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 5 },
                              { type: 'boomer',   count: 4,  interval: 5 },
-                             { type: 'sprinter', count: 24, interval: 1.0, speed: 180 }] }
+                             { type: 'sprinter', count: 24, interval: 1.0, speed: 180 },
+                             { type: 'spitter',  count: 3,  interval: 6 }] }
       ]
     },
     suite: {
@@ -224,7 +226,8 @@
                              { type: 'boomer',   count: 3,  interval: 6 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 130, interval: 1.1, burst: 7 },
                              { type: 'stalker',  count: 5,  interval: 1.9 },
-                             { type: 'boomer',   count: 4,  interval: 5 }] }
+                             { type: 'boomer',   count: 4,  interval: 5 },
+                             { type: 'spitter',  count: 3,  interval: 6 }] }
       ]
     },
     cranebay: {
@@ -258,7 +261,8 @@
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 120, interval: 1.1, burst: 7 },
                              { type: 'stalker',  count: 6,  interval: 1.7 },
-                             { type: 'sprinter', count: 18, interval: 1.2, speed: 185 }] },
+                             { type: 'sprinter', count: 18, interval: 1.2, speed: 185 },
+                             { type: 'spitter',  count: 3,  interval: 6 }] },
         { doors: 3, groups: [{ type: 'shambler', count: 140, interval: 1.05, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 5 },
                              { type: 'stalker',  count: 7,  interval: 1.5 }] }
@@ -275,7 +279,8 @@
         { doors: 3, groups: [{ type: 'shambler', count: 135, interval: 1.05, burst: 7 },
                              { type: 'brute',    count: 5,  interval: 5 },
                              { type: 'sprinter', count: 18, interval: 1.2, speed: 185 },
-                             { type: 'boomer',   count: 5,  interval: 5 }] }
+                             { type: 'boomer',   count: 5,  interval: 5 },
+                             { type: 'spitter',  count: 4,  interval: 5 }] }
       ]
     },
     broadcastcore: {
@@ -296,6 +301,7 @@
                               speed: Math.min(120 + n * 5, 180) });
     if (n >= 3) groups.push({ type: 'boomer', count: 1 + Math.floor(n / 3), interval: 6 });
     if (n >= 4) groups.push({ type: 'brute', count: Math.floor(n / 2), interval: 7 });
+    if (n >= 5) groups.push({ type: 'spitter', count: 1 + Math.floor(n / 4), interval: 6 });
     return { doors: Math.min(1 + Math.floor(n / 3), 3), groups: groups };
   };
 

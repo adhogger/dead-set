@@ -5,8 +5,12 @@
     swarmer:  { r: 7,  speed: 110, hp: 1,  score: 50,  color: '#5bc8d6' },
     brute:    { r: 20, speed: 40,  hp: 10, score: 500, color: '#9b6bb3' },
     boomer:   { r: 14, speed: 80,  hp: 3,  score: 300, color: '#e8843c' },
-    stalker:  { r: 11, speed: 85,  hp: 2,  score: 350, color: '#6c5b9e' }
+    stalker:  { r: 11, speed: 85,  hp: 2,  score: 350, color: '#6c5b9e' },
+    spitter:  { r: 13, speed: 55,  hp: 3,  score: 400, color: '#a8b83c' }
   };
+  // Spitters hold this range and lob bile globs instead of closing in —
+  // the only non-boss ranged threat, so "walk backwards forever" stops working.
+  var SPIT_RANGE = 340, SPIT_WINDUP = 0.5;
   // Stalkers cycle: 1.2s visible, 0.8s near-invisible — and they sprint while faint.
   DA.stalkerFaint = function (e) { return (e.phaseT || 0) > 1.2; };
   // 4 spawn doors, one per wall; dir names match room exit directions
@@ -30,7 +34,7 @@
   };
   // How fast each type can change direction (radians/second). Low = staggers
   // past a dodging player, Smash TV style, instead of pivoting on a dime.
-  var TURN = { shambler: 1.7, sprinter: 3.2, swarmer: 3.8, brute: 1.1, boomer: 2.0, stalker: 2.6 };
+  var TURN = { shambler: 1.7, sprinter: 3.2, swarmer: 3.8, brute: 1.1, boomer: 2.0, stalker: 2.6, spitter: 1.5 };
   // Shortest-way angle steering, clamped to a max change. Pure and testable.
   DA.turnToward = function (heading, target, maxDelta) {
     var d = target - heading;
@@ -55,7 +59,8 @@
     e.grace = DA.SPAWN_GRACE;
     arr.push(e);
   };
-  DA.updateEnemies = function (arr, player, dt) {
+  // enemyBullets is optional (older tests omit it) — spitters need it to fire
+  DA.updateEnemies = function (arr, player, dt, enemyBullets) {
     var players = player.length != null ? player : [player];   // object or array
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
@@ -68,6 +73,24 @@
       if (e.type === 'stalker') {
         e.phaseT = ((e.phaseT == null ? Math.random() * 2 : e.phaseT) + dt) % 2;
         if (DA.stalkerFaint(e)) sp *= 1.5;
+      }
+      if (e.type === 'spitter') {
+        if (e.spitT == null) e.spitT = 2 + Math.random() * 1.5;
+        if (!(e.grace > 0) && DA.dist2(e.x, e.y, player.x, player.y) < SPIT_RANGE * SPIT_RANGE) {
+          sp = 0;                             // in range: plant feet and lob bile
+          e.spitT -= dt;
+          if (e.spitT <= 0) {
+            e.spitT = 2.6 + Math.random() * 1.2;
+            if (enemyBullets) {
+              var sv = DA.norm(player.x - e.x, player.y - e.y);
+              DA.fireEnemyBullet(enemyBullets, e.x + sv.x * e.r, e.y + sv.y * e.r,
+                                 sv.x, sv.y, { speed: 150, color: '#b8d44a', r: 7 });
+              if (DA.audio) DA.audio.groan();
+            }
+          }
+        } else if (e.spitT < SPIT_WINDUP) {
+          e.spitT = SPIT_WINDUP;              // target broke range: cancel the windup
+        }
       }
       e.wobble += dt * 5;
       // each zombie wants the player PLUS its own flanking angle, which fades
@@ -193,6 +216,11 @@
       var eye = e.r * 0.28, off = e.r * 0.38;
       ctx.fillRect(e.x - off - eye / 2, e.y - e.r * 0.25, eye, eye);
       ctx.fillRect(e.x + off - eye / 2, e.y - e.r * 0.25, eye, eye);
+      if (e.type === 'spitter') {              // mouth bulges while a glob winds up
+        var wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
+        ctx.fillStyle = wind > 0 ? '#b8d44a' : '#2a2e18';
+        ctx.beginPath(); ctx.arc(e.x, e.y + e.r * 0.32, e.r * (0.2 + wind * 0.32), 0, 7); ctx.fill();
+      }
       ctx.globalAlpha = 1;
     }
   };

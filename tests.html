@@ -396,6 +396,23 @@ test('stalkers phase faint and sprint while faint', function () {
   DA.updateEnemies([faint], player, 0.1);
   assert(faint.x - fx > visible.x - vx, 'faint stalker covers more ground');
 });
+test('spitters hold their range and lob globs at the player', function () {
+  var sp = DA.makeEnemy('spitter', 400, 360);
+  sp.spitT = 0.01;
+  var near = { x: 600, y: 360, r: 12 };        // 200px away: inside spit range
+  var eb = [];
+  var x0 = sp.x;
+  DA.updateEnemies([sp], near, 0.02, eb);
+  assert(eb.length === 1, 'in range: a glob is fired');
+  assert(Math.abs(sp.x - x0) < 0.5, 'in range: the spitter plants its feet');
+  assert(eb[0].dx > 0.99 && Math.abs(eb[0].dy) < 0.01, 'glob flies straight at the player');
+  assert(sp.spitT > 2, 'reload timer resets after firing');
+  sp.spitT = 0.1;
+  var far = { x: 1200, y: 360, r: 12 };        // 800px away: out of range
+  DA.updateEnemies([sp], far, 0.02, eb);
+  assert(sp.spitT >= 0.45, 'target broke range: the windup cancels');
+  assert(eb.length === 1, 'out of range: no new glob');
+});
 test('The Executive teleports, fires fans, and spirals in phase 2', function () {
   var b = DA.makeExecutive();
   assert(b.name === 'THE EXECUTIVE' && b.maxHp > 320, 'tougher than the Producer');
