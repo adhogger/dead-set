@@ -100,12 +100,14 @@
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
       if (BOSS_TAUNTS[st.room.boss]) {
-        (DA.hostSay || DA.announce)(BOSS_TAUNTS[st.room.boss]);
+        if (DA.hostSay) DA.hostSay(BOSS_TAUNTS[st.room.boss], st.room.boss, 4.0);
+        else DA.announce(BOSS_TAUNTS[st.room.boss]);
         st.hostRoomCount = (st.hostRoomCount || 0) + 1;
       }
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       st.introCardT = 1.7;   // lower-third title card instead of an announcer line
+      st.countdownT = 2.1;   // 3-2-1 before the doors open
     }
     if (DA.net) DA.net.onEnterRoom(roomId, entryDir);
   }
@@ -721,7 +723,17 @@
       }
     }
     DA.updateBullets(st.bullets, dt);
-    DA.updateWaves(st.waveManager, st.enemies, dt);
+    if (st.countdownT > 0) {                     // 3... 2... 1... nothing spawns yet
+      var cdPrev = Math.ceil(st.countdownT / 0.7);
+      st.countdownT -= dt;
+      var cdNow = Math.ceil(Math.max(st.countdownT, 0.001) / 0.7);
+      if (cdNow !== cdPrev || st.countdownT <= 0) {
+        if (DA.audio && DA.audio.tick) DA.audio.tick();
+        if (st.countdownT <= 0 && DA.addShake) DA.addShake(5);
+      }
+    } else {
+      DA.updateWaves(st.waveManager, st.enemies, dt);
+    }
     for (var ne = 0; ne < st.enemies.length; ne++) {   // first-encounter callouts
       var newType = st.enemies[ne].type;
       if (!st.seenTypes[newType]) {
@@ -736,6 +748,13 @@
       var homeY = boss.homeY + (boss.type === 'producer' ? Math.sin(boss.wobble * 1.7) * 40 : 0);
       boss.y += (homeY - boss.y) * Math.min(1, 4 * dt);   // tracks the strut bob, so the
       boss.x += (boss.homeX - boss.x) * Math.min(1, 4 * dt); // AI handoff has no visible seam
+      if (DA.fx.host && DA.fx.host.speaker === boss.type) {
+        boss.grace = Math.max(boss.grace, 0.25);       // no fight while BOSS CAM is live
+      } else if (!boss.actionCalled && boss.grace <= 0.25) {
+        boss.actionCalled = true;                      // the cam just cut away
+        DA.announce('ACTION!');
+        if (DA.audio && DA.audio.sting) DA.audio.sting();
+      }
     }
     if (boss && !(boss.grace > 0) && !boss.dying) {   // AI held during entrance + death scene
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
@@ -1129,6 +1148,36 @@
         if (P[4]) { ctx.fillRect(P[0] + 8, P[1], 8, P[3]); ctx.fillRect(P[0] + 24, P[1], 8, P[3]); }
         else { ctx.fillRect(P[0], P[1] + 8, P[2], 8); ctx.fillRect(P[0], P[1] + 24, P[2], 8); }
       }
+      var lampNow = performance.now();
+      var lamps = (d.dir === 'N' || d.dir === 'S') ?
+        [[d.x - 70, d.y], [d.x + 70, d.y]] : [[d.x, d.y - 70], [d.x, d.y + 70]];
+      for (var lp = 0; lp < 2; lp++) {
+        var LX = lamps[lp][0], LY = lamps[lp][1];
+        ctx.fillStyle = '#26262e';                     // lamp housing
+        ctx.fillRect(LX - 5, LY - 5, 10, 10);
+        if (isExit) {                                  // green: this way out
+          var ga = 0.65 + Math.sin(lampNow / 400) * 0.25;
+          ctx.fillStyle = 'rgba(126, 224, 129, ' + (ga * 0.35).toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(LX, LY, 11, 0, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(126, 224, 129, ' + ga.toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(LX, LY, 4, 0, 7); ctx.fill();
+        } else if (isSpawning) {                       // red beacon: they're coming
+          var beam = (lampNow / 140) % 6.283;
+          ctx.fillStyle = 'rgba(220, 50, 60, 0.28)';
+          ctx.beginPath();
+          ctx.moveTo(LX, LY);
+          ctx.arc(LX, LY, 26, beam, beam + 0.9);
+          ctx.closePath(); ctx.fill();
+          var ra = 0.55 + Math.sin(lampNow / 90) * 0.45;
+          ctx.fillStyle = 'rgba(220, 50, 60, ' + (ra * 0.4).toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(LX, LY, 12, 0, 7); ctx.fill();
+          ctx.fillStyle = 'rgba(230, 60, 70, ' + ra.toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(LX, LY, 4.5, 0, 7); ctx.fill();
+        } else {                                       // idle: a dark dome
+          ctx.fillStyle = '#3a3a44';
+          ctx.beginPath(); ctx.arc(LX, LY, 3.5, 0, 7); ctx.fill();
+        }
+      }
       if (isExit) {
         ctx.fillStyle = '#7ee081';
         ctx.font = 'bold 17px monospace';
@@ -1345,18 +1394,67 @@
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h);
     ctx.fill();
-    ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 2; ctx.stroke();
+    var bossCam = hst.speaker && hst.speaker !== 'host';
+    ctx.strokeStyle = bossCam ? '#d43a4b' : '#3a3a48'; ctx.lineWidth = 2; ctx.stroke();
     ctx.textAlign = 'left';
     ctx.font = 'bold 11px monospace';
     ctx.fillStyle = '#d43a4b';
     if (Math.floor(hst.t * 3) % 2 === 0) { ctx.beginPath(); ctx.arc(x + 15, y + 13, 3.5, 0, 7); ctx.fill(); }
-    ctx.fillText('HOST CAM', x + 24, y + 17);
+    ctx.fillText(bossCam ? 'BOSS CAM' : 'HOST CAM', x + 24, y + 17);
     var bx = x + 12, by = y + 26, bs = 80;              // the talking head
     ctx.fillStyle = '#1c1c28';
     ctx.fillRect(bx, by, bs, bs);
     ctx.save();
     ctx.beginPath(); ctx.rect(bx, by, bs, bs); ctx.clip();
     var now = performance.now();
+    var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
+    if (hst.speaker === 'algorithm') {                  // the drone: a lens, not a face
+      ctx.fillStyle = '#181c22';
+      ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs / 2, bs * 0.42, bs * 0.3, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(47, 215, 196, 0.7)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.strokeStyle = '#3a4450'; ctx.lineWidth = 3;   // rotor arms
+      ctx.beginPath();
+      ctx.moveTo(bx + 10, by + 16); ctx.lineTo(bx + bs / 2 - 18, by + bs / 2 - 10);
+      ctx.moveTo(bx + bs - 10, by + 16); ctx.lineTo(bx + bs / 2 + 18, by + bs / 2 - 10);
+      ctx.stroke();
+      ctx.fillStyle = '#2fd7c4';                        // the lens dilates as it "speaks"
+      ctx.beginPath(); ctx.arc(bx + bs / 2, by + bs / 2, bs * 0.16 + open * 3, 0, 7); ctx.fill();
+      ctx.fillStyle = '#0a0a0f';
+      ctx.beginPath(); ctx.arc(bx + bs / 2, by + bs / 2, bs * 0.07 + open * 2, 0, 7); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bs, bs);
+      drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    if (hst.speaker === 'executive') {                  // navy suit, visor, phone at ear
+      var eg = ctx.createLinearGradient(bx, by + bs - 26, bx + bs, by + bs);
+      eg.addColorStop(0, '#98a6ff'); eg.addColorStop(0.5, '#7a8aff'); eg.addColorStop(1, '#5a68c9');
+      ctx.fillStyle = eg;
+      ctx.beginPath(); ctx.ellipse(bx + bs / 2, by + bs + 8, bs * 0.58, bs * 0.46, 0, 3.14, 6.29); ctx.fill();
+      ctx.fillStyle = '#f2f2e9';
+      ctx.fillRect(bx + bs / 2 - 8, by + bs - 18, 16, 18);
+      ctx.fillStyle = '#d4a017';                        // gold tie
+      ctx.fillRect(bx + bs / 2 - 3.5, by + bs - 18, 7, 18);
+      var ex = bx + bs / 2, ey = by + bs * 0.42, er = bs * 0.29;
+      ctx.fillStyle = '#d8a988';
+      ctx.beginPath(); ctx.arc(ex, ey, er, 0, 7); ctx.fill();
+      ctx.fillStyle = '#2c2c34';                        // corporate hair
+      ctx.beginPath(); ctx.arc(ex, ey - er * 0.28, er * 1.05, 3.3, 6.1); ctx.fill();
+      ctx.fillStyle = '#111';                           // full-width visor
+      ctx.fillRect(ex - er * 0.9, ey - er * 0.34, er * 1.8, er * 0.42);
+      ctx.fillStyle = '#22222c';                        // phone welded to the ear
+      ctx.fillRect(ex + er * 0.75, ey - er * 0.4, 6, er * 0.9);
+      ctx.fillStyle = '#5c2a2a';
+      ctx.beginPath(); ctx.ellipse(ex, ey + er * 0.52, er * 0.32, er * (0.07 + 0.2 * open), 0, 0, 7); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(bx, by, bs, bs);
+      drawHostCaption(ctx, hst, x, y, w, bx, bs);
+      ctx.globalAlpha = 1;
+      return;
+    }
     // the 80s package: sequined gold suit, industrial fake tan, teeth you could ski off
     var sg = ctx.createLinearGradient(bx, by + bs - 26, bx + bs, by + bs);
     sg.addColorStop(0, '#f5cf4e'); sg.addColorStop(0.5, '#d4a017'); sg.addColorStop(1, '#f0c649');
@@ -1391,7 +1489,6 @@
     ctx.fillRect(hx - hr * 0.85, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx + hr * 0.15, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx - hr * 0.2, hy - hr * 0.22, hr * 0.4, 3);
-    var open = Math.abs(Math.sin(now / 90)) * (hst.t > 0.6 ? 1 : 0.15);
     ctx.fillStyle = '#7a3020';                          // the mouth flaps while he talks
     ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.36, hr * (0.09 + 0.24 * open), 0, 0, 7); ctx.fill();
     if (open > 0.25) {                                  // TEETH: dazzling, dentally impossible
@@ -1410,6 +1507,10 @@
     ctx.restore();
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
+    drawHostCaption(ctx, hst, x, y, w, bx, bs);
+    ctx.globalAlpha = 1;
+  }
+  function drawHostCaption(ctx, hst, x, y, w, bx, bs) {
     if (!hst.lines) {                                   // wrap the caption once
       ctx.font = 'bold 15px monospace';
       hst.lines = [];
@@ -1427,7 +1528,6 @@
     for (var li = 0; li < hst.lines.length && li < 4; li++) {
       ctx.fillText(hst.lines[li], bx + bs + 14, y + 44 + li * 20);
     }
-    ctx.globalAlpha = 1;
   }
 
   function drawMap(ctx, st) {
@@ -1755,6 +1855,17 @@
     drawScreenFx(ctx);
     drawHud(ctx, st);
     if (st.mode === 'playing' && st.introCardT > 0) drawIntroCard(ctx, st);
+    if (st.mode === 'playing' && st.countdownT > 0) {   // 3-2-1, centre stage
+      var cdDigit = Math.ceil(st.countdownT / 0.7);
+      var cdSeg = st.countdownT - (cdDigit - 1) * 0.7;  // 0.7 -> 0 within the digit
+      var cdScale = 1 + (0.7 - cdSeg) * 0.9;
+      ctx.textAlign = 'center';
+      ctx.globalAlpha = Math.min(1, cdSeg / 0.12);
+      ctx.font = 'bold ' + Math.round(110 * cdScale) + 'px monospace';
+      ctx.fillStyle = '#d43a4b';
+      ctx.fillText(String(cdDigit), DA.W / 2, DA.H / 2 - 60);
+      ctx.globalAlpha = 1;
+    }
     if (st.mode === 'playing') drawHostCam(ctx);
     if (st.mode === 'playing' && st.player.hearts === 1) {  // last-heart warning pulse
       var pulse = 0.14 + 0.1 * Math.sin(performance.now() / 260);

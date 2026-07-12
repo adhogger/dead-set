@@ -133,9 +133,13 @@
   // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
   // talking head and the line as a caption — his quips live there now, so the
   // centre of the screen stays clear for gameplay callouts.
-  DA.hostSay = function (text) {
+  // speaker: omitted = the host; or a boss type ('producer'/'executive'/
+  // 'algorithm') — the window becomes BOSS CAM, and during a boss entrance
+  // the fight holds until it leaves the screen.
+  DA.hostSay = function (text, speaker, dur) {
     if (!text) return;
-    DA.fx.host = { text: text, lines: null, t: 4.6, max: 4.6 };
+    var t = dur || 4.6;
+    DA.fx.host = { text: text, lines: null, t: t, max: t, speaker: speaker || 'host' };
   };
   try { DA.fx.shakeOn = localStorage.getItem('deadset_shake') !== '0'; }
   catch (e) { DA.fx.shakeOn = true; }
@@ -233,11 +237,31 @@
     if (hapticsOn) DA.haptic(0.8, 120);      // a demo thump so the toggle is felt
     return hapticsOn;
   };
+  // iOS EXPERIMENT: Safari has no vibrate API, but toggling a native
+  // <input type="checkbox" switch> plays the system's light haptic tick
+  // (iOS 17.4+). One fixed intensity, unofficial, may break in any iOS
+  // release — but it costs nothing where it doesn't work.
+  var iosSwitch = null, iosTickAt = 0;
+  function iosTick() {
+    if (!document.body) return;
+    if (!iosSwitch) {
+      iosSwitch = document.createElement('input');
+      iosSwitch.type = 'checkbox';
+      iosSwitch.setAttribute('switch', '');
+      iosSwitch.style.cssText = 'position:absolute;left:-9999px;top:0';
+      document.body.appendChild(iosSwitch);
+    }
+    var now = performance.now();
+    if (now - iosTickAt < 60) return;     // don't machine-gun the Taptic Engine
+    iosTickAt = now;
+    iosSwitch.checked = !iosSwitch.checked;
+  }
   DA.haptic = function (strength, ms) {
     if (!hapticsOn) return;
     try {
-      if (navigator.vibrate && DA.input && DA.input.touchActive && DA.input.touchActive()) {
-        navigator.vibrate(ms);
+      if (DA.input && DA.input.touchActive && DA.input.touchActive()) {
+        if (navigator.vibrate) navigator.vibrate(ms);
+        else iosTick();                   // iPhones: the switch hack
       }
       var pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (var i = 0; i < pads.length; i++) {
