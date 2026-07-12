@@ -120,6 +120,14 @@
       ctx.fillStyle = '#9ad7ff';
       ctx.beginPath(); ctx.arc(-p.r - 6, -p.r - 6, 2.5, 0, 7); ctx.fill();
     }
+    if (!p.bot) {                                    // jumpsuit detail: seams + holster
+      ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-p.r * 0.2, -p.r * 0.85); ctx.lineTo(-p.r * 0.2, p.r * 0.85); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.r * 0.55, -p.r * 0.75); ctx.lineTo(p.r * 0.85, 0); ctx.lineTo(p.r * 0.55, p.r * 0.75); ctx.stroke();
+      ctx.fillStyle = '#3a3228';                     // hip holster
+      ctx.fillRect(-p.r * 0.55, p.r * 0.6, 7, 5);
+    }
     ctx.fillStyle = (DA.GUNS[p.gun] || DA.GUNS.pistol).color; // sash shows current gun
     ctx.fillRect(-p.r, -3, p.r * 2, 6);
     if (!p.bot) {
@@ -127,8 +135,7 @@
       ctx.beginPath(); ctx.arc(p.r * 0.7, -3.5, 3, 0, 7); ctx.fill();
       ctx.beginPath(); ctx.arc(p.r * 0.7, 3.5, 3, 0, 7); ctx.fill();
     }
-    ctx.fillStyle = '#333';                          // gun
-    ctx.fillRect(p.r - 3, -2.5, 11, 5);
+    drawHeldGun(ctx, p.gun, p.r);                    // a shotgun LOOKS like a shotgun
     if (!p.bot) {                                    // head: hair at the back, face forward
       var hr = p.r * 0.52;
       ctx.fillStyle = '#e0b08c';
@@ -138,13 +145,71 @@
       ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(0, 0, hr, 0, 7); ctx.stroke();
     }
-    var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // muzzle flash right after a shot
-    if (p.firing && p.fireCooldown > g.rate - 0.05) {
-      ctx.fillStyle = 'rgba(255, 240, 150, 0.4)';
-      ctx.beginPath(); ctx.arc(p.r + 11, 0, 1.3, 0, 7); ctx.fill();
-      ctx.fillStyle = 'rgba(255, 200, 80, 0.1)';
-      ctx.beginPath(); ctx.arc(p.r + 11, 0, 2.5, 0, 7); ctx.fill();
-    }
+    var g = DA.GUNS[p.gun] || DA.GUNS.pistol;        // per-gun muzzle flash shapes
+    if (p.firing && p.fireCooldown > g.rate - 0.05) drawMuzzleFlash(ctx, p.gun, p.r);
     ctx.restore();
   };
+
+  // held-weapon silhouettes, drawn in the aim-rotated frame (facing +x)
+  function drawHeldGun(ctx, id, r) {
+    var METAL = '#2c2c34', DARK = '#1c1c22', WOOD = '#5a4128';
+    ctx.fillStyle = METAL;
+    if (id === 'shotgun') {
+      ctx.fillStyle = WOOD; ctx.fillRect(r - 10, -3, 7, 6);          // stock
+      ctx.fillStyle = METAL; ctx.fillRect(r - 4, -2.5, 20, 5);       // long barrel
+      ctx.fillStyle = '#4a4a58'; ctx.fillRect(r + 5, -4, 6, 8);      // pump
+    } else if (id === 'minigun') {
+      ctx.fillStyle = DARK; ctx.fillRect(r - 5, -5.5, 17, 11);       // fat rotary body
+      ctx.fillStyle = '#4a4a58';
+      ctx.fillRect(r + 12, -4.5, 6, 3); ctx.fillRect(r + 12, -1.5, 6, 3); ctx.fillRect(r + 12, 1.5, 6, 3);
+    } else if (id === 'railgun') {
+      ctx.fillRect(r - 4, -2, 19, 4);                                // rail
+      ctx.strokeStyle = '#b78bff'; ctx.lineWidth = 2;                // coils
+      ctx.beginPath(); ctx.arc(r + 4, 0, 4, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r + 10, 0, 4, 0, 7); ctx.stroke();
+    } else if (id === 'flamer') {
+      ctx.fillStyle = '#7a3018'; ctx.beginPath(); ctx.arc(r - 6, 5, 4.5, 0, 7); ctx.fill();  // fuel tank
+      ctx.fillStyle = METAL; ctx.fillRect(r - 4, -3, 15, 6);
+      ctx.fillStyle = '#ff5b1f'; ctx.beginPath(); ctx.arc(r + 12, 0, 2, 0, 7); ctx.fill();   // pilot light
+    } else if (id === 'rocket') {
+      ctx.fillStyle = '#3a3a44'; ctx.fillRect(r - 6, -4.5, 22, 9);   // launch tube
+      ctx.fillStyle = DARK; ctx.beginPath(); ctx.arc(r + 16, 0, 4, 0, 7); ctx.fill();        // open muzzle
+      ctx.fillStyle = '#d43a4b'; ctx.fillRect(r + 2, -4.5, 3, 9);    // warning band
+    } else if (id === 'smg') {
+      ctx.fillRect(r - 4, -3, 13, 6);
+      ctx.fillStyle = DARK; ctx.fillRect(r + 1, 3, 4, 7);            // magazine
+    } else if (id === 'triple') {
+      ctx.fillRect(r - 3, -5, 12, 3); ctx.fillRect(r - 3, -1.5, 14, 3); ctx.fillRect(r - 3, 2, 12, 3);
+    } else {                                                          // pistol
+      ctx.fillRect(r - 3, -2.5, 11, 5);
+      ctx.fillStyle = DARK; ctx.fillRect(r - 2, 2, 4, 4);            // grip
+    }
+  }
+
+  // per-gun muzzle flash shapes at the barrel tip
+  function drawMuzzleFlash(ctx, id, r) {
+    var tip = r + (id === 'rocket' ? 20 : (id === 'shotgun' || id === 'railgun' ? 17 : 12));
+    if (id === 'shotgun') {
+      ctx.fillStyle = 'rgba(255, 210, 110, 0.45)';                   // wide cone
+      ctx.beginPath(); ctx.moveTo(tip - 3, 0); ctx.lineTo(tip + 9, -6); ctx.lineTo(tip + 9, 6); ctx.closePath(); ctx.fill();
+    } else if (id === 'minigun') {
+      ctx.fillStyle = 'rgba(255, 230, 140, 0.5)';                    // 4-point star
+      ctx.beginPath();
+      ctx.moveTo(tip + 6, 0); ctx.lineTo(tip + 1.5, 1.5); ctx.lineTo(tip, 6); ctx.lineTo(tip - 1.5, 1.5);
+      ctx.lineTo(tip - 6, 0); ctx.lineTo(tip - 1.5, -1.5); ctx.lineTo(tip, -6); ctx.lineTo(tip + 1.5, -1.5);
+      ctx.closePath(); ctx.fill();
+    } else if (id === 'railgun') {
+      ctx.strokeStyle = 'rgba(183, 139, 255, 0.6)';                  // charge ring
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(tip, 0, 5, 0, 7); ctx.stroke();
+    } else if (id === 'rocket') {
+      ctx.fillStyle = 'rgba(255, 170, 80, 0.4)';                     // backblast puff
+      ctx.beginPath(); ctx.arc(tip, 0, 6, 0, 7); ctx.fill();
+    } else if (id !== 'flamer') {                                     // small classic flash
+      ctx.fillStyle = 'rgba(255, 240, 150, 0.4)';
+      ctx.beginPath(); ctx.arc(tip, 0, 1.6, 0, 7); ctx.fill();
+      ctx.fillStyle = 'rgba(255, 200, 80, 0.12)';
+      ctx.beginPath(); ctx.arc(tip, 0, 3, 0, 7); ctx.fill();
+    }
+  }
 })();

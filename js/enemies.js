@@ -241,7 +241,7 @@
         }
         ctx.globalAlpha = keepA;
       }
-      var sheet = DA.sprite && DA.sprite(e.type);
+      var sheet = DA.sprite && DA.sprite(e.type, e.id || 0);   // per-entity variant breaks the clone army
       if (sheet && sheet.world) {
         var frame = Math.floor((((e.wobble % 6.283) + 6.283) / 6.283) * DA.SPRITE_FRAMES) % DA.SPRITE_FRAMES;
         var img = e.hitFlash > 0 ? sheet.flash[frame] : sheet.frames[frame];

@@ -95,7 +95,7 @@
     return 1;                       // Syndication/Endless: the show at its confident best
   };
 
-  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], host: null, shake: 0 };
+  DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null, shake: 0 };
 
   // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
   // talking head and the line as a caption — his quips live there now, so the
@@ -109,15 +109,20 @@
 
   // a felled zombie shatters into flying shards instead of blinking out —
   // or deflating: this reads as glass breaking, not a balloon losing air
-  DA.corpse = function (x, y, r, color) {
-    var n = 7 + Math.floor(r / 2.5);
+  // per-size shards: a swarmer pops into confetti, a brute breaks into slabs
+  DA.corpse = function (x, y, r, color, dx, dy) {
+    var big = r >= 16;
+    var n = big ? 5 + Math.floor(r / 5) : 7 + Math.floor(r / 2.5);
     for (var i = 0; i < n; i++) {
-      var a = DA.rand(0, 6.283), speed = DA.rand(70, 240);
+      var a = DA.rand(0, 6.283), speed = DA.rand(70, big ? 180 : 240);
       DA.fx.corpses.push({
-        x: x, y: y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed - DA.rand(30, 90),
+        x: x, y: y,
+        vx: Math.cos(a) * speed + (dx || 0) * 120,
+        vy: Math.sin(a) * speed + (dy || 0) * 120 - DA.rand(30, 90),
         rot: DA.rand(0, 6.283), rotV: DA.rand(-9, 9),
-        w: DA.rand(3, Math.max(4, r * 0.5)), h: DA.rand(3, Math.max(4, r * 0.5)),
-        color: color, t: 0.55, max: 0.55, grav: 320
+        w: DA.rand(big ? r * 0.3 : 3, Math.max(4, r * (big ? 0.75 : 0.5))),
+        h: DA.rand(big ? r * 0.3 : 3, Math.max(4, r * (big ? 0.75 : 0.5))),
+        color: color, t: big ? 0.7 : 0.55, max: big ? 0.7 : 0.55, grav: 320
       });
     }
     if (DA.fx.corpses.length > 320) DA.fx.corpses.splice(0, DA.fx.corpses.length - 320);
@@ -137,16 +142,35 @@
     DA.fx.rings.push({ x: x, y: y, maxR: maxR || 100, life: 0.32, maxLife: 0.32 });
   };
 
+  DA.eject = function (x, y, aimA) {       // a spent casing kicked out sideways
+    var side = Math.random() < 0.5 ? 1 : -1;
+    var a = aimA + side * 1.9 + DA.rand(-0.3, 0.3);
+    DA.fx.casings.push({ x: x, y: y,
+      vx: Math.cos(a) * DA.rand(60, 120), vy: Math.sin(a) * DA.rand(60, 120) - 40,
+      rot: DA.rand(0, 6.28), rotV: DA.rand(-14, 14), grav: 300,
+      t: 0.5, max: 0.5 });
+    if (DA.fx.casings.length > 60) DA.fx.casings.shift();
+  };
+
   DA.dust = function (x, y) {              // tiny footstep puff, drawn under the player
     DA.fx.dust.push({ x: x, y: y, r: DA.rand(2, 4), vy: -8, life: 0.32, maxLife: 0.32 });
     if (DA.fx.dust.length > 60) DA.fx.dust.shift();
   };
 
-  DA.splat = function (x, y) {
+  // dx/dy optional: when the killing shot's direction is known, the stain
+  // SPRAYS along it — a main pool plus droplets thrown down-range
+  DA.splat = function (x, y, dx, dy) {
     var blobs = [];
     var n = 2 + Math.floor(DA.rand(0, 3));
     for (var i = 0; i < n; i++) {
       blobs.push({ dx: DA.rand(-14, 14), dy: DA.rand(-14, 14), r: DA.rand(6, 16) });
+    }
+    if (dx || dy) {
+      for (var d = 1; d <= 3; d++) {              // trailing droplets down-range
+        blobs.push({ dx: dx * (14 + d * 13) + DA.rand(-7, 7),
+                     dy: dy * (14 + d * 13) + DA.rand(-7, 7),
+                     r: DA.rand(3, 9 - d) });
+      }
     }
     DA.fx.splats.push({ x: x, y: y, blobs: blobs });
     if (DA.fx.splats.length > 200) DA.fx.splats.shift();
@@ -229,6 +253,14 @@
       fx.rings[r].life -= dt;
       if (fx.rings[r].life <= 0) fx.rings.splice(r, 1);
     }
+    for (var cs = fx.casings.length - 1; cs >= 0; cs--) {
+      var ca = fx.casings[cs];
+      ca.t -= dt;
+      if (ca.t <= 0) { fx.casings.splice(cs, 1); continue; }
+      ca.vy += ca.grav * dt;
+      ca.x += ca.vx * dt; ca.y += ca.vy * dt;
+      ca.rot += ca.rotV * dt;
+    }
     if (fx.host) {
       // hold the host's entrance while a room title card owns that corner
       if (!(DA.state && DA.state.introCardT > 0)) fx.host.t -= dt;
@@ -237,6 +269,18 @@
   };
 
   DA.drawFxUnder = function (ctx) {   // floor stains + deflating corpses, under actors
+    var casings = DA.fx.casings;      // brass glinting on the studio floor
+    for (var ci = 0; ci < casings.length; ci++) {
+      var cg = casings[ci];
+      ctx.save();
+      ctx.translate(cg.x, cg.y);
+      ctx.rotate(cg.rot);
+      ctx.globalAlpha = Math.min(1, cg.t / 0.18);
+      ctx.fillStyle = '#c9a23c';
+      ctx.fillRect(-2.4, -1, 4.8, 2);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
     var dust = DA.fx.dust;
     ctx.fillStyle = 'rgba(210, 200, 180, 0.5)';
     for (var du = 0; du < dust.length; du++) {
@@ -345,8 +389,8 @@
     st.kills = (st.kills || 0) + 1;
     DA.burst(e.x, e.y, e.color, e.isBoss ? 60 : 12, b && b.dx, b && b.dy);
     if (e.isBoss || e.r >= 20) DA.fx.hitStop = 0.05;
-    DA.splat(e.x, e.y);
-    DA.corpse(e.x, e.y, e.r, e.color);
+    DA.splat(e.x, e.y, b && b.dx, b && b.dy);
+    DA.corpse(e.x, e.y, e.r, e.color, b && b.dx, b && b.dy);
     DA.addShake(e.isBoss ? 14 : 3);
     if (DA.haptic && e.isBoss) DA.haptic(1, 350);
     if (DA.audio) DA.audio.splat(e.r);

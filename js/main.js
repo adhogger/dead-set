@@ -975,13 +975,65 @@
     decorCache[id] = c;
     return c;
   }
+  // CRT edge curvature: a rounded-corner shadow frame, baked once — the last
+  // touch that makes the whole picture read as a broadcast monitor
+  var crtMask = (function () {
+    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    var g = c.getContext('2d');
+    g.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    g.fillRect(0, 0, DA.W, DA.H);
+    g.globalCompositeOperation = 'destination-out';
+    g.beginPath();
+    if (g.roundRect) g.roundRect(1, 1, DA.W - 2, DA.H - 2, 48); else g.rect(0, 0, DA.W, DA.H);
+    g.fill();                                          // hard window...
+    g.filter = 'blur(6px)';                            // ...softened at the rim
+    g.beginPath();
+    if (g.roundRect) g.roundRect(4, 4, DA.W - 8, DA.H - 8, 48); else g.rect(0, 0, DA.W, DA.H);
+    g.fill();
+    return c;
+  })();
   function drawScreenFx(ctx) {
     ctx.drawImage(vignette, 0, 0);
     if (!scanPattern) scanPattern = ctx.createPattern(scanlines, 'repeat');
     ctx.fillStyle = scanPattern;
     ctx.fillRect(0, 0, DA.W, DA.H);
+    ctx.drawImage(crtMask, 0, 0);
   }
 
+  // ambient colour cast per set, so makeup reads pink and the server room blue
+  var ROOM_TINT = {
+    mirrors: 'rgba(230, 140, 200, 0.05)', tables: 'rgba(120, 200, 160, 0.04)',
+    monitors: 'rgba(255, 170, 90, 0.05)', servers: 'rgba(90, 150, 255, 0.055)',
+    crates: 'rgba(210, 190, 120, 0.045)', desks: 'rgba(170, 140, 255, 0.045)',
+    papers: 'rgba(200, 200, 230, 0.04)', lounge: 'rgba(140, 220, 140, 0.045)',
+    racks: 'rgba(255, 140, 120, 0.045)', bossfloor: 'rgba(255, 80, 80, 0.05)',
+    lighting: 'rgba(255, 220, 130, 0.045)', catwalk: 'rgba(160, 160, 190, 0.04)',
+    cranebay: 'rgba(255, 190, 110, 0.045)', pyrobay: 'rgba(255, 110, 60, 0.06)',
+    corebay: 'rgba(90, 220, 255, 0.05)'
+  };
+  // a studio camera on a tripod, aimed at the action
+  function drawTripodCam(ctx, x, y, ang) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = 'rgba(20, 20, 28, 0.8)';        // tripod legs
+    ctx.lineWidth = 2.5;
+    for (var l = 0; l < 3; l++) {
+      var la = ang + 2.2 + l * 1.05;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(la) * 14, Math.sin(la) * 14); ctx.stroke();
+    }
+    ctx.rotate(ang);
+    ctx.fillStyle = '#22222e';                        // camera body
+    ctx.fillRect(-8, -6, 16, 12);
+    ctx.fillStyle = '#14141c';                        // lens hood
+    ctx.fillRect(8, -4, 7, 8);
+    ctx.fillStyle = '#3a5a7a';                        // lens glass
+    ctx.beginPath(); ctx.arc(13, 0, 2.5, 0, 7); ctx.fill();
+    if (Math.floor(performance.now() / 700) % 2 === 0) {
+      ctx.fillStyle = '#d43a4b';                      // tally light
+      ctx.beginPath(); ctx.arc(-5, -8, 2, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
   function drawArena(ctx, st) {
     var A = DA.ARENA;
     ctx.fillStyle = '#2a2a38';                        // walls
@@ -989,6 +1041,25 @@
     ctx.fillStyle = floorPattern((st.room && st.room.floor) || '#1c1c26'); // tiled floor
     ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
     ctx.drawImage(decorCanvas(st), A.x0, A.y0);        // this room's set dressing
+    var tint = ROOM_TINT[st.room && st.room.decor];    // ambient colour per set
+    if (tint) {
+      ctx.fillStyle = tint;
+      ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
+    }
+    // cable runs taped across the floor — a real set is never tidy
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.28)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.moveTo(A.x0 + 60, A.y1 - 12);
+    ctx.bezierCurveTo(DA.W * 0.35, A.y1 - 26, DA.W * 0.6, A.y1 - 6, A.x1 - 60, A.y1 - 18);
+    ctx.moveTo(A.x1 - 14, A.y0 + 70);
+    ctx.bezierCurveTo(A.x1 - 30, DA.H * 0.4, A.x1 - 8, DA.H * 0.6, A.x1 - 22, A.y1 - 70);
+    ctx.stroke();
+    for (var tp = 0; tp < 4; tp++) {                   // camera tripods, one per corner
+      var tc = [[A.x0 + 62, A.y0 + 58], [A.x1 - 62, A.y0 + 58],
+                [A.x0 + 62, A.y1 - 58], [A.x1 - 62, A.y1 - 58]][tp];
+      drawTripodCam(ctx, tc[0], tc[1], Math.atan2(DA.H / 2 - tc[1], DA.W / 2 - tc[0]));
+    }
     ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';     // game-show floor rings
     ctx.lineWidth = 3;
     for (var r = 80; r <= 320; r += 80) {
@@ -1663,6 +1734,14 @@
       flashGrad.addColorStop(1, 'rgba(220, 30, 40, 0)');
       ctx.fillStyle = flashGrad;
       ctx.fillRect(0, 0, DA.W, DA.H);
+      if (hp.hurtFlashT > 0.24) {                // chromatic-aberration flicker on the hit itself
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.14;
+        ctx.drawImage(canvas, 4, 0);
+        ctx.drawImage(canvas, -4, 1);
+        ctx.restore();
+      }
     }
     var lb = findBoss(st);
     if (st.mode === 'playing' && lb && lb.laserPhase === 'warn') {  // boss laser telegraph: screen-edge glow

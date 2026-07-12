@@ -235,6 +235,8 @@
     ctx.save();
     ctx.translate(b.x, b.y);
     ctx.rotate(b.faceA != null ? b.faceA : 1.57);
+    var breathe = 1 + Math.sin((b.wobble || 0) * 2.3) * 0.022;   // he breathes
+    ctx.scale(breathe, breathe);
     var suit = b.color;
     var suitDark = b.type === 'executive' ? '#5a68c9' : '#a87f12';
     var swing = Math.sin((b.wobble || 0) * 1.7);
@@ -261,7 +263,11 @@
     ctx.fillStyle = suit;                             // shoulder pads either side
     ctx.beginPath(); ctx.arc(0, -r * 0.82, r * 0.4, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(0, r * 0.82, r * 0.4, 0, 7); ctx.fill();
-    ctx.fillStyle = suit;                             // suit body
+    var sg = ctx.createRadialGradient(-r * 0.35, -r * 0.35, r * 0.15, 0, 0, r * 1.12);
+    sg.addColorStop(0, suitDark === '#5a68c9' ? '#98a6ff' : '#f0c65a');   // fabric sheen
+    sg.addColorStop(0.65, suit);
+    sg.addColorStop(1, suitDark);
+    ctx.fillStyle = sg;                               // suit body, key-lit
     ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth = 3;

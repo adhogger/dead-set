@@ -32,7 +32,12 @@
       if (b.x < DA.ARENA.x0 || b.x > DA.ARENA.x1 || b.y < DA.ARENA.y0 || b.y > DA.ARENA.y1) {
         arr.splice(i, 1); continue;
       }
-      if (b.range && DA.dist2(b.x, b.y, b.ox, b.oy) > b.range * b.range) arr.splice(i, 1);
+      if (b.range && DA.dist2(b.x, b.y, b.ox, b.oy) > b.range * b.range) { arr.splice(i, 1); continue; }
+      if (b.splash && DA.fx && Math.random() < 0.7) {   // rockets leave a smoke trail
+        DA.fx.particles.push({ x: b.x - b.dx * 8, y: b.y - b.dy * 8,
+          vx: DA.rand(-15, 15), vy: DA.rand(-20, 5),
+          life: 0.4, maxLife: 0.4, color: 'rgba(150,150,160,0.5)', r: DA.rand(2, 4) });
+      }
     }
   };
   // returns how many bullets left the barrel (for the accuracy stat)
@@ -62,6 +67,9 @@
       p.vx -= Math.cos(base) * g.kick; p.vy -= Math.sin(base) * g.kick;
       if (DA.haptic && !p.bot) DA.haptic(0.4, 35);   // heavy guns thump the hands too
     }
+    if (DA.eject && !g.pierce && !g.splash && !g.range) {   // brass for the ballistic guns
+      DA.eject(p.x + Math.cos(base) * 14, p.y + Math.sin(base) * 14, base);
+    }
     if (g.shake && DA.addShake) DA.addShake(g.shake);
     if (DA.audio) DA.audio.shot();
     return g.pellets;
@@ -74,8 +82,38 @@
       ctx.beginPath(); ctx.arc(b.x, b.y, b.r * 2.4, 0, 7); ctx.fill();
     }
     ctx.globalAlpha = 1;
-    for (i = 0; i < arr.length; i++) {           // core pass
+    for (i = 0; i < arr.length; i++) {           // core pass, with per-gun tracers
       var c = arr[i];
+      if (c.pierce) {                            // railgun: a beam segment, not a ball
+        ctx.strokeStyle = c.color || '#b78bff';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 4;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.moveTo(c.x - c.dx * 34, c.y - c.dy * 34);
+        ctx.lineTo(c.x, c.y);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(c.x - c.dx * 30, c.y - c.dy * 30);
+        ctx.lineTo(c.x, c.y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        continue;
+      }
+      if (c.gunLabel === 'MINIGUN' || c.gunLabel === 'SMG') {   // short hot streaks
+        ctx.strokeStyle = c.color || '#ffd94a';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(c.x - c.dx * 15, c.y - c.dy * 15);
+        ctx.lineTo(c.x, c.y);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.beginPath(); ctx.arc(c.x, c.y, 1.6, 0, 7); ctx.fill();
+        continue;
+      }
       ctx.fillStyle = c.color || '#ffd94a';
       ctx.beginPath(); ctx.arc(c.x, c.y, c.r, 0, 7); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.8)';

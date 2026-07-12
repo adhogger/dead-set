@@ -8,7 +8,7 @@
   // Sheets are baked facing +x and rotated at draw time. Dynamic touches
   // (elite ring, fuse strobe, jaw bulge, stalker wisps, fade alphas) stay live
   // in js/enemies.js on top of the stamped frame.
-  var SCALE = 3, FRAMES = 6;
+  var SCALE = 3, FRAMES = 10, VARIANTS = 3;
   var SHEETS = {};      // type -> { frames: [canvas], flash: [canvas], anchor, size }
 
   // per-type look: base body color, darker skin/limb tone, cloth-scrap color
@@ -35,8 +35,10 @@
     return 'rgb(' + c(n >> 16) + ',' + c((n >> 8) & 255) + ',' + c(n & 255) + ')';
   }
 
-  function bakeFrame(type, phase, white) {
-    var L = LOOK[type], r = L.r;
+  function bakeFrame(type, phase, white, variant) {
+    var L = LOOK[type];
+    var vRng = decoRng((DA.hashSeed ? DA.hashSeed(type) : type.length * 977) + variant * 7919);
+    var r = L.r * (0.94 + vRng() * 0.14);            // builds differ per variant
     var margin = r * 2.2;                       // room for arms + feet
     var size = Math.ceil((r + margin) * 2 * SCALE);
     var c = document.createElement('canvas');
@@ -46,7 +48,7 @@
     g.scale(SCALE, SCALE);
     var swing = Math.sin((phase / FRAMES) * 6.283);       // walk cycle
     var bob = 1 + swing * 0.05;
-    var rng = decoRng(DA.hashSeed ? DA.hashSeed(type) : type.length * 977);
+    var rng = decoRng((DA.hashSeed ? DA.hashSeed(type) : type.length * 977) + variant * 7919);
 
     var skin = white ? '#ffffff' : L.skin;
     var body = white ? '#ffffff' : L.body;
@@ -100,8 +102,9 @@
 
     if (!white) {
       // TORN CLOTHES: jagged cloth scraps clinging to the torso
-      g.fillStyle = L.cloth;
-      for (var t2 = 0; t2 < 3; t2++) {
+      g.fillStyle = shade(L.cloth, 0.85 + rng() * 0.4);   // wardrobe varies per variant
+      var scraps = 2 + Math.floor(rng() * 3);
+      for (var t2 = 0; t2 < scraps; t2++) {
         var ca = rng() * 6.283, cd = r * (0.15 + rng() * 0.45);
         var cx = Math.cos(ca) * cd, cyy = Math.sin(ca) * cd;
         g.beginPath();
@@ -115,7 +118,8 @@
       }
       // WOUNDS: dried gashes
       g.fillStyle = 'rgba(96, 16, 24, 0.85)';
-      for (var w2 = 0; w2 < 2; w2++) {
+      var gashes = 1 + Math.floor(rng() * 3);
+      for (var w2 = 0; w2 < gashes; w2++) {
         var wa = rng() * 6.283, wd = r * (0.3 + rng() * 0.4);
         g.beginPath();
         g.ellipse(Math.cos(wa) * wd, Math.sin(wa) * wd, r * 0.16, r * 0.07, rng() * 3, 0, 7);
@@ -155,15 +159,23 @@
 
   DA.bakeSprites = function () {
     for (var type in LOOK) {
-      var frames = [], flash = [];
-      for (var f = 0; f < FRAMES; f++) {
-        frames.push(bakeFrame(type, f, false));
-        flash.push(bakeFrame(type, f, true));
+      var variants = [];
+      for (var v = 0; v < VARIANTS; v++) {
+        var frames = [], flash = [];
+        for (var f = 0; f < FRAMES; f++) {
+          frames.push(bakeFrame(type, f, false, v));
+          flash.push(bakeFrame(type, f, true, v));
+        }
+        variants.push({ frames: frames, flash: flash, baseR: LOOK[type].r,
+                        world: frames[0].width / SCALE });
       }
-      SHEETS[type] = { frames: frames, flash: flash, baseR: LOOK[type].r,
-                       world: frames[0].width / SCALE };
+      SHEETS[type] = variants;
     }
   };
   DA.SPRITE_FRAMES = FRAMES;
-  DA.sprite = function (type) { return SHEETS[type]; };
+  DA.SPRITE_VARIANTS = VARIANTS;
+  DA.sprite = function (type, variant) {
+    var vs = SHEETS[type];
+    return vs && vs[(variant || 0) % vs.length];
+  };
 })();
