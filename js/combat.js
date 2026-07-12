@@ -59,6 +59,7 @@
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
       if (!e) continue; // a boomer chain-blast may have shrunk the list mid-loop
+      if (e.dying) continue; // a boss mid-death-scene is beyond harm (and harmless)
       var killed = false;
       for (var j = st.bullets.length - 1; j >= 0; j--) {
         var b = st.bullets[j];
@@ -75,7 +76,7 @@
             if (st.stats && b.gunLabel && !b.bot) {
               st.stats.killsByGun[b.gunLabel] = (st.stats.killsByGun[b.gunLabel] || 0) + 1;
             }
-            killed = true;
+            if (!e.isBoss) killed = true;  // bosses die on camera (main.js death scene)
             break;
           }
         }
@@ -83,7 +84,6 @@
       if (killed) {
         st.enemies.splice(i, 1);
         st.score += e.score * st.combo;
-        if (e.isBoss) st.bossDead = true;
         if (DA.bumpCombo) DA.bumpCombo(st);
         if (DA.onKill) DA.onKill(st, e, b);
         if (e.type === 'boomer') DA.boomerBlast(st, e.x, e.y); // shot boomers still detonate

@@ -80,11 +80,12 @@
   };
 
   var sticks = { move: null, aim: null };   // { id, ox, oy, cx, cy }
-  var pauseTapped = false, botTapped = false, synTapped = false;
+  var pauseTapped = false, botTapped = false, synTapped = false, anyTapped = false;
   function canvasPt(t) { return DA.screenToCanvas(t.clientX, t.clientY, window.innerWidth, window.innerHeight); }
 
   window.addEventListener('touchstart', function (e) {
     device = 'touch';
+    anyTapped = true;                                // "tap anywhere" consumers (unpause)
     for (var i = 0; i < e.changedTouches.length; i++) {
       var t = e.changedTouches[i];
       var p = canvasPt(t);
@@ -178,6 +179,7 @@
     touchActive: function () { return device === 'touch'; },
     touchSticks: function () { return sticks; },
     consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
+    consumeAnyTap: function () { var v = anyTapped; anyTapped = false; return v; },
     consumeBotTap: function () { var v = botTapped; botTapped = false; return v; },
     consumeSynTap: function () { var v = synTapped; synTapped = false; return v; },
     // true while any "start the game" input is held: fire, click, tap, Enter or Space

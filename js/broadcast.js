@@ -51,7 +51,7 @@
       punch(pp.x, pp.y, pp.downed ? 150 : 250, 0.95);
       var gg = DA.GUNS && (DA.GUNS[pp.gun] || DA.GUNS.pistol);
       if (gg && pp.firing && pp.fireCooldown > gg.rate - 0.06) {
-        punch(pp.x + pp.aimX * 22, pp.y + pp.aimY * 22, 340, 0.8);   // gunfire lights the set
+        punch(pp.x + pp.aimX * 22, pp.y + pp.aimY * 22, 280, 0.45);  // gunfire lights the set
       }
     }
     for (i = 0; i < st.enemies.length; i++) {
@@ -64,6 +64,10 @@
         d = DA.doorByDir(dir);
         if (d) punch(d.x, d.y, 150, 0.8);
       }
+      if (st.bossDead && st.victoryExit) {             // the finale's single way out
+        d = DA.doorByDir(st.victoryExit);
+        if (d) punch(d.x, d.y, 180, 0.9);
+      }
     }
     lctx.globalAlpha = 1;
     lctx.globalCompositeOperation = 'source-over';
@@ -74,7 +78,7 @@
       var pm = ps[pk];
       var gm = DA.GUNS && (DA.GUNS[pm.gun] || DA.GUNS.pistol);
       if (gm && pm.firing && pm.fireCooldown > gm.rate - 0.06) {
-        tint(ctx, pm.x + pm.aimX * 26, pm.y + pm.aimY * 26, 90, 'rgba(255, 214, 120, 0.14)');
+        tint(ctx, pm.x + pm.aimX * 26, pm.y + pm.aimY * 26, 34, 'rgba(255, 214, 120, 0.09)');
       }
     }
     for (i = 0; i < st.enemies.length; i++) {

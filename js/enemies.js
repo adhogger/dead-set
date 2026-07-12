@@ -1,12 +1,12 @@
 (function () {
   var TYPES = {
-    shambler: { r: 12, speed: 60,  hp: 2,  score: 100, color: '#6fae5c' },
-    sprinter: { r: 12, speed: 180, hp: 1,  score: 250, color: '#c95d63' },
-    swarmer:  { r: 7,  speed: 110, hp: 1,  score: 50,  color: '#5bc8d6' },
-    brute:    { r: 20, speed: 40,  hp: 10, score: 500, color: '#9b6bb3' },
-    boomer:   { r: 14, speed: 80,  hp: 3,  score: 300, color: '#e8843c' },
-    stalker:  { r: 11, speed: 85,  hp: 2,  score: 350, color: '#6c5b9e' },
-    spitter:  { r: 13, speed: 55,  hp: 3,  score: 400, color: '#a8b83c' }
+    shambler: { r: 12, speed: 55,  hp: 2,  score: 100, color: '#6fae5c' },
+    sprinter: { r: 12, speed: 165, hp: 1,  score: 250, color: '#c95d63' },
+    swarmer:  { r: 9,  speed: 100, hp: 1,  score: 50,  color: '#5bc8d6' },
+    brute:    { r: 20, speed: 37,  hp: 10, score: 500, color: '#9b6bb3' },
+    boomer:   { r: 14, speed: 73,  hp: 3,  score: 300, color: '#e8843c' },
+    stalker:  { r: 11, speed: 78,  hp: 2,  score: 350, color: '#6c5b9e' },
+    spitter:  { r: 13, speed: 50,  hp: 3,  score: 400, color: '#a8b83c' }
   };
   // Spitters hold this range and lob bile globs instead of closing in —
   // the only non-boss ranged threat, so "walk backwards forever" stops working.
@@ -54,7 +54,7 @@
   DA.SPAWN_GRACE = 0.6;
   // Elites: rare gold-ringed champions — triple hp and score, and the
   // audience ALWAYS throws a gift when one goes down (see DA.onKill).
-  var ELITE_CHANCE = 0.04;
+  var ELITE_CHANCE = 0.02;
   DA.spawnAtDoor = function (arr, type, speed, doors) {
     var pool = (doors && doors.length) ? doors : DA.DOORS;
     var d = pool[Math.floor(Math.random() * pool.length)];

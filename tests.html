@@ -173,7 +173,7 @@ test('wave data can slow a specific enemy group', function () {
   var slow = DA.makeEnemy('sprinter', 0, 0, 130);
   assert(slow.speed === 130, 'speed override should apply');
   var normal = DA.makeEnemy('sprinter', 0, 0);
-  assert(normal.speed === 180, 'no override keeps the type speed');
+  assert(normal.speed === 165, 'no override keeps the type speed');
 });
 test('fresh spawns get a grace period where they cannot hurt the player', function () {
   var st = { player: DA.makePlayer(), bullets: [], enemies: [], score: 0, combo: 1 };

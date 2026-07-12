@@ -45,9 +45,16 @@
   function store(key, val) { try { localStorage.setItem(key, val); } catch (e) {} }
   function load(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
 
+  var BOSS_TAUNTS = {
+    producer: '"I MADE THIS SHOW. I CAN UNMAKE YOU."',
+    executive: '"YOUR CONTRACT HAS A DEATH CLAUSE. PAGE 40."',
+    algorithm: '"I HAVE SEEN EVERY WAY YOU DIE. PICK ONE."'
+  };
   function enterRoom(st, roomId, entryDir) {
     st.roomId = roomId;
     st.room = DA.ROOMS[roomId];
+    st.entryDir = entryDir;
+    st.victoryExit = null;
     st.visited[roomId] = true;
     st.enemies = [];
     st.bullets = [];
@@ -83,8 +90,15 @@
     if (st.room.boss) {
       var boss = st.room.boss === 'executive' ? DA.makeExecutive() :
                  (st.room.boss === 'algorithm' ? DA.makeAlgorithm() : DA.makeBoss());
+      // stage the entrance: the boss appears across the room from wherever the
+      // player walked in, and stays harmless for a beat while it talks trash
+      if (entryDir === 'N') boss.y = DA.H - 220; else boss.y = 200;
+      if (entryDir === 'W') boss.x = DA.W - 320;
+      else if (entryDir === 'E') boss.x = 320;
+      boss.grace = 2.4;
       st.enemies.push(boss);
       DA.announce(boss.name + '!');
+      if (BOSS_TAUNTS[st.room.boss]) DA.announce(BOSS_TAUNTS[st.room.boss]);
       if (DA.audio) (DA.audio.bossSting || DA.audio.roar)();
     } else {
       DA.announce(st.room.name);
@@ -221,7 +235,7 @@
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
   DA.touchUIBlock = function (x, y) {
-    if (DA.state.mode === 'playing' && x > DA.W - 80 && y < 64) return true;
+    if (DA.state.mode === 'playing' && x > DA.W - 84 && y < 76) return true;
     if (DA.state.mode === 'title' && y > 598 && y < 638) return 'bot';
     if (DA.state.mode === 'title' && y > 474 && y < 510) return 'syn';
     return false;
@@ -240,10 +254,15 @@
       ctx.fillStyle = side === 'aim' ? 'rgba(232,212,77,0.35)' : 'rgba(255,255,255,0.3)';
       ctx.beginPath(); ctx.arc(s.ox + v.x * 55, s.oy + v.y * 55, 26, 0, 7); ctx.fill();
     }
-    if (DA.state.mode === 'playing') {          // pause button, top-right corner
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.fillRect(DA.W - 58, 14, 8, 26);
-      ctx.fillRect(DA.W - 42, 14, 8, 26);
+    if (DA.state.mode === 'playing') {          // pause button: an unmissable chip, top-right
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.72)';
+      ctx.beginPath(); ctx.arc(DA.W - 42, 38, 26, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillRect(DA.W - 51, 27, 6, 22);
+      ctx.fillRect(DA.W - 39, 27, 6, 22);
     }
   }
 
@@ -376,6 +395,54 @@
     requestAnimationFrame(frame);
   }
 
+  // The boss doesn't just vanish: it detonates in stages over ~3 seconds,
+  // every zombie on set dies with it (their strings are cut), and then a
+  // single glowing exit opens that the player walks into to end the episode.
+  function startBossDeath(st, boss) {
+    boss.dying = true;
+    boss.deathT = 3.0;
+    boss.burstT = 0;
+    st.score += boss.score * st.combo;
+    for (var i = st.enemies.length - 1; i >= 0; i--) {   // the whole cast dies with the star
+      var e = st.enemies[i];
+      if (e.isBoss) continue;
+      st.enemies.splice(i, 1);
+      st.score += e.score;
+      if (DA.onKill) DA.onKill(st, e);
+    }
+    st.enemyBullets.length = 0;
+    DA.addShake(18);
+    DA.fx.hitStop = 0.08;
+    DA.announce('CANCELLED.');
+    if (DA.audio && DA.audio.bossSting) DA.audio.bossSting();
+  }
+  function updateBossDeath(st, boss, dt) {
+    boss.deathT -= dt;
+    boss.burstT -= dt;
+    if (boss.burstT <= 0) {                              // staged detonations
+      boss.burstT = 0.17;
+      var bx = boss.x + DA.rand(-boss.r, boss.r), by = boss.y + DA.rand(-boss.r, boss.r);
+      DA.burst(bx, by, Math.random() < 0.5 ? '#ff8a3d' : '#ffe17a', 13);
+      DA.splat(bx, by);
+      DA.addShake(5);
+      if (DA.audio && Math.random() < 0.35) DA.audio.splat(24);
+    }
+    if (boss.deathT <= 0) {                              // the final blowout
+      DA.burst(boss.x, boss.y, '#ffe17a', 60);
+      DA.burst(boss.x, boss.y, boss.color, 40);
+      if (DA.shockwave) DA.shockwave(boss.x, boss.y, 240);
+      DA.corpse(boss.x, boss.y, boss.r * 1.6, boss.color);
+      DA.addShake(22);
+      DA.fx.hitStop = 0.1;
+      if (DA.audio) DA.audio.roar();
+      st.enemies.splice(st.enemies.indexOf(boss), 1);
+      st.kills = (st.kills || 0) + 1;
+      st.bossDead = true;
+      st.roomCleared = true;
+      st.victoryExit = DA.oppositeDir(st.entryDir || 'N');
+      DA.announce('TAKE THE EXIT');
+    }
+  }
   function findBoss(st) {
     for (var i = 0; i < st.enemies.length; i++) if (st.enemies[i].isBoss) return st.enemies[i];
     return null;
@@ -555,7 +622,10 @@
     if (pauseHeld && !pauseWasHeld) paused = !paused;
     if (!paused) showBestiary = false;
     pauseWasHeld = pauseHeld;
-    if (DA.input.consumePauseTap()) paused = !paused;
+    var cornerTap = DA.input.consumePauseTap();
+    var anyTap = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
+    if (cornerTap) paused = !paused;                                  // the ⏸ chip toggles
+    else if (paused && DA.input.touchActive() && anyTap) paused = false; // tap ANYWHERE resumes
     if (paused) return;
     if (DA.fx.hitStop > 0) { DA.fx.hitStop -= dt; return; }   // the big-kill freeze frame
 
@@ -586,7 +656,7 @@
       }
     }
     var boss = findBoss(st);
-    if (boss) {
+    if (boss && !(boss.grace > 0) && !boss.dying) {   // frozen during entrance + death scene
       if (boss.type === 'executive') DA.updateExecutive(boss, st, dt);
       else if (boss.type === 'algorithm') DA.updateAlgorithm(boss, st, dt);
       else DA.updateBoss(boss, st, dt);
@@ -596,6 +666,8 @@
         if (DA.addShake) DA.addShake(10);
       }
     }
+    if (boss && boss.hp <= 0 && !boss.dying) startBossDeath(st, boss);
+    if (boss && boss.dying) updateBossDeath(st, boss, dt);
     DA.updateEnemies(st.enemies, st.players, dt, st.enemyBullets);
     DA.updateBoomers(st, dt);
     if (DA.updateHazards) DA.updateHazards(st, dt);
@@ -638,7 +710,10 @@
     }
     updateRevive(st, dt);
     if (st.room.boss) {
-      if (st.bossDead && st.enemies.length === 0) endRun(st, true);
+      if (st.bossDead && st.victoryExit) {     // walk into the glowing exit to wrap the episode
+        var vd = DA.doorByDir(st.victoryExit);
+        if (vd && DA.dist2(st.player.x, st.player.y, vd.x, vd.y) < 60 * 60) endRun(st, true);
+      }
     } else if (st.waveManager.done) {
       if (!st.roomCleared) {
         st.roomCleared = true;
@@ -861,7 +936,8 @@
     var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
-      var isExit = st.room && st.room.exits[d.dir] && st.roomCleared;
+      var isExit = st.room && ((st.room.exits[d.dir] && st.roomCleared) ||
+                               (st.bossDead && st.victoryExit === d.dir));
       var isSpawning = active.indexOf(d) !== -1;      // red = zombies use this door
       ctx.fillStyle = isExit ? '#2e6b3a' :
         (isSpawning ? 'rgba(150, 35, 45, ' + (0.65 + Math.sin(performance.now() / 200) * 0.25) + ')' : '#101018');
@@ -1048,29 +1124,31 @@
       }
     }
     ctx.textAlign = 'right';
+    // on touch, the whole right-aligned block shifts left to clear the pause button
+    var rx = DA.input.touchActive() ? DA.W - 96 : DA.W - 20;
     ctx.font = 'bold 26px monospace';
     ctx.fillStyle = '#7ee081';
-    ctx.fillText('$' + st.score.toLocaleString('en-US'), DA.W - 20, 32);
+    ctx.fillText('$' + st.score.toLocaleString('en-US'), rx, 32);
     if (st.combo > 1) {
       var pulse = st.combo >= 5 ? 1 + Math.sin(performance.now() / 90) * 0.15 : 1;
       var pop = st.comboPopT > 0 ? 1 + (st.comboPopT / 0.3) * 0.6 : 1;   // one-shot step-up punch
       ctx.font = 'bold ' + Math.round(24 * pulse * pop) + 'px monospace';
       ctx.fillStyle = st.comboPopT > 0 ? '#fff3b0' : '#e8d44d';
-      ctx.fillText('x' + st.combo, DA.W - 20, 62);
+      ctx.fillText('x' + st.combo, rx, 62);
     }
     var chain = st.comboKills || 0;                 // chain progress toward the next step
     if (st.combo > 1 || chain > 0) {
       var frac = DA.clamp(chain / (DA.COMBO_STEP || 6), 0, 1);
       ctx.fillStyle = 'rgba(232, 212, 77, 0.22)';
-      ctx.fillRect(DA.W - 84, 70, 64, 5);
+      ctx.fillRect(rx - 64, 70, 64, 5);
       ctx.fillStyle = '#e8d44d';
-      ctx.fillRect(DA.W - 20 - 64 * frac, 70, 64 * frac, 5);
+      ctx.fillRect(rx - 64 * frac, 70, 64 * frac, 5);
     }
     var puLines = DA.powerupHudLines(st.player);
     ctx.font = 'bold 17px monospace';
     for (var k = 0; k < puLines.length; k++) {
       ctx.fillStyle = puLines[k].color;
-      ctx.fillText(puLines[k].text, DA.W - 20, 90 + k * 22);
+      ctx.fillText(puLines[k].text, rx, 90 + k * 22);
     }
     // co-op link quality, both ends
     if (DA.net && ((DA.net.status === 'hosting' && DA.net.remoteJoined) || DA.net.guestActive)) {
@@ -1266,11 +1344,15 @@
       cy += 12;
       lines.push({ text: hint, font: '18px monospace', color: '#8888a0', y: cy });
       cy += 26;
-      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story · H host co-op', font: '15px monospace', color: '#8888a0', y: cy });
+      lines.push({ text: 'Esc pauses · M mutes · N music · K shake · V fx · I story', font: '15px monospace', color: '#8888a0', y: cy });
       cy += 30;
-      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — CAM-BOT CO-OP: ' + (botOn ? 'ON ✓' : 'OFF'),
+      lines.push({ text: (DA.input.touchActive() ? 'TAP HERE' : 'B (or 🎮 LB)') + ' — 2-PLAYER with CAM-BOT (AI partner): ' + (botOn ? 'ON ✓' : 'OFF'),
                    font: 'bold 20px monospace', color: botOn ? '#a8c8d8' : '#666677', y: cy });
-      cy += 34;
+      cy += 28;
+      if (DA.net) {
+        lines.push({ text: 'H — 2-PLAYER ONLINE: host a game, send a friend the link', font: '17px monospace', color: '#666677', y: cy });
+        cy += 26;
+      }
       lines.push({ text: "C — TONIGHT'S CAST: meet the monsters", font: '17px monospace', color: '#8888a0', y: cy });
       cy += 26;
       if (window.SLASHTV_DONATE_URL) {              // inert until Ben configures a link
@@ -1343,7 +1425,8 @@
       drawCenteredScreen(ctx, [
         { text: 'PAUSED', font: 'bold 72px monospace', color: '#e8d44d', y: 300 },
         { text: 'WE\'LL BE RIGHT BACK', font: '24px monospace', color: '#8888a0', y: 345 },
-        { text: 'Esc / P / 🎮 Start to resume', font: 'bold 22px monospace', color: '#7ee081', y: 420 },
+        { text: DA.input.touchActive() ? 'TAP ANYWHERE TO RESUME' : 'Esc / P / 🎮 Start to resume',
+          font: 'bold 22px monospace', color: '#7ee081', y: 420 },
         { text: 'B — WHO\'S WHO (know your monsters)', font: '19px monospace', color: '#8888a0', y: 458 }
       ]);
       if (st.room.map) drawMap(ctx, st);

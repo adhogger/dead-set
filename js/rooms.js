@@ -16,7 +16,7 @@
     greenroom: {
       map: { x: 1, y: 0 },
       name: 'THE GREEN ROOM', floor: '#2e352d', decor: 'lounge',
-      exits: { E: 'props' },
+      exits: { S: 'cafeteria' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 85, interval: 1.1, burst: 7 },
                              { type: 'swarmer',  count: 24, interval: 1.3, burst: 5 }] },
@@ -27,7 +27,7 @@
     makeup: {
       map: { x: 0, y: 1 },
       name: 'MAKEUP', floor: '#362e34', decor: 'mirrors',
-      exits: { S: 'cafeteria' },
+      exits: { E: 'cafeteria', S: 'props' },
       waves: [
         { doors: 2, groups: [{ type: 'shambler', count: 95, interval: 1.1, burst: 7 },
                              { type: 'sprinter', count: 12, interval: 2.0, speed: 110 }] },
@@ -36,9 +36,9 @@
       ]
     },
     props: {
-      map: { x: 2, y: 0 },
+      map: { x: 0, y: 2 },
       name: 'PROP DEPARTMENT', floor: '#34342e', decor: 'crates',
-      exits: { S: 'editing' },
+      exits: { E: 'controlroom' },
       waves: [
         { doors: 3, groups: [{ type: 'swarmer',  count: 60, interval: 1.3, burst: 5 },
                              { type: 'sprinter', count: 16, interval: 1.8, speed: 130 }] },
@@ -48,9 +48,9 @@
       ]
     },
     cafeteria: {
-      map: { x: 0, y: 2 },
+      map: { x: 1, y: 1 },
       name: 'STAFF CAFETERIA', floor: '#2e3336', decor: 'tables',
-      exits: { E: 'controlroom' },
+      exits: { E: 'editing', S: 'controlroom' },
       waves: [
         { doors: 3, groups: [{ type: 'shambler', count: 105, interval: 1.1, burst: 7 },
                              { type: 'brute',    count: 4,  interval: 8 }] },

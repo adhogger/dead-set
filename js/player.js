@@ -2,7 +2,7 @@
   DA.ARENA = { x0: 40, y0: 40, x1: 1240, y1: 680 };
   DA.MAX_HEARTS = 5;
   DA.makePlayer = function () {
-    return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 240, vx: 0, vy: 0,
+    return { x: DA.W / 2, y: DA.H / 2, r: 12, speed: 215, vx: 0, vy: 0,
              hearts: 3, invuln: 0, aimX: 1, aimY: 0, fireCooldown: 0, firing: false,
              gun: 'pistol', gunT: 0, bootsT: 0, shieldT: 0 };
   };
@@ -10,11 +10,13 @@
     e.x = DA.clamp(e.x, DA.ARENA.x0 + e.r, DA.ARENA.x1 - e.r);
     e.y = DA.clamp(e.y, DA.ARENA.y0 + e.r, DA.ARENA.y1 - e.r);
   };
-  // velocity eases toward the input direction instead of snapping — smooth, not jerky
+  // velocity eases toward the input direction instead of snapping — smooth, not
+  // jerky. Letting go brakes much harder than speeding up does, so stopping
+  // feels planted instead of skating.
   DA.movePlayer = function (p, mx, my, dt) {
     var mv = DA.norm(mx, my);
     var sp = p.speed * (p.bootsT > 0 ? 1.4 : 1);
-    var k = Math.min(1, 10 * dt);
+    var k = Math.min(1, (mv.x || mv.y ? 10 : 22) * dt);
     p.vx += (mv.x * sp - p.vx) * k;
     p.vy += (mv.y * sp - p.vy) * k;
     p.x += p.vx * dt;

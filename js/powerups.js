@@ -68,6 +68,12 @@
       if (st.powerupT <= 0) {
         st.powerupT = DA.rand(18, 26);
         var type = DA.pickDropType(st.player, st.lastGunDrop);
+        for (var rr = 0; rr < 3; rr++) {       // don't drop a type already on the floor
+          var taken = false;
+          for (var pk = 0; pk < st.powerups.length; pk++) if (st.powerups[pk].type === type) taken = true;
+          if (!taken) break;
+          type = DA.pickDropType(st.player, st.lastGunDrop);
+        }
         if (type.indexOf('gun_') === 0) st.lastGunDrop = type;
         st.powerups.push({ id: DA.newId(), type: type, t: LIFETIME,
                            x: DA.rand(DA.ARENA.x0 + 120, DA.ARENA.x1 - 120),

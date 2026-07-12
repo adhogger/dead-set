@@ -252,8 +252,15 @@
     DA.corpse(e.x, e.y, e.r, e.color);
     DA.addShake(e.isBoss ? 14 : 3);
     if (DA.audio) DA.audio.splat(e.r);
-    if (e.elite && st.powerups && DA.pickDropType) {   // a champion always pays out
+    if (e.elite && st.powerups && DA.pickDropType && st.powerups.length < 3) {
+      // a champion pays out — but never floods the floor, and rerolls
+      // rather than duplicating a gift type already lying there
       var dtype = DA.pickDropType(st.player, st.lastGunDrop);
+      for (var rr = 0; rr < 3; rr++) {
+        var dupe = st.powerups.some(function (pu) { return pu.type === dtype; });
+        if (!dupe) break;
+        dtype = DA.pickDropType(st.player, st.lastGunDrop);
+      }
       if (dtype.indexOf('gun_') === 0) st.lastGunDrop = dtype;
       st.powerups.push({ id: DA.newId(), type: dtype, t: 12, x: e.x, y: e.y });
       DA.burst(e.x, e.y, '#e8d44d', 18);
