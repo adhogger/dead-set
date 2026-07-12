@@ -246,8 +246,8 @@
   var paused = false;
   var showBestiary = false;   // pause-screen "who's who" overlay
   var showSettings = false;   // title-screen settings panel
-  var menuSel = 0, setSel = 0;   // keyboard/gamepad cursor per menu
-  var titleMenu = [], settingsMenu = [];   // rebuilt every frame
+  var menuSel = 0, setSel = 0, pauseSel = 0;   // keyboard/gamepad cursor per menu
+  var titleMenu = [], settingsMenu = [], pauseMenu = [];   // rebuilt every frame
 
   function toggleShake() {
     DA.fx.shakeOn = DA.fx.shakeOn === false;
@@ -266,6 +266,11 @@
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
   DA.touchUIBlock = function (x, y) {
+    if (DA.state.mode === 'playing' && paused && !showBestiary) {
+      var pi = hitMenu(showSettings ? settingsMenu : pauseMenu, x, y);
+      if (pi >= 0) return 'btn:' + pi;
+      return false;                          // taps elsewhere resume (anyTap path)
+    }
     if (DA.state.mode === 'playing' && x > DA.W - 84 && y < 76) return true;
     if (DA.state.mode === 'title') {          // taps route to the menu buttons
       var bi = DA.titleHit ? DA.titleHit(x, y) : -1;
@@ -315,7 +320,8 @@
   var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
-    if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing') paused = !paused;
+    if ((e.code === 'Escape' || e.code === 'KeyP') && DA.state.mode === 'playing' &&
+        !(e.code === 'Escape' && (showSettings || showBestiary))) paused = !paused;
     if (e.code === 'KeyB' && paused && DA.state.mode === 'playing') showBestiary = !showBestiary;
     if (e.code === 'KeyC' && DA.state.mode === 'title') showBestiary = !showBestiary;
     if (e.code === 'Escape' && showBestiary) showBestiary = false;
@@ -324,21 +330,26 @@
     if (e.code === 'KeyB' && DA.state.mode === 'title' && !showSettings) toggleBot();
     if (e.code === 'KeyI' && DA.state.mode === 'title') { showSettings = false; DA.state = { mode: 'intro', page: 0 }; }
     if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
-    // arrow/enter menu navigation on the title + settings screens
-    if (DA.state.mode === 'title' && !showBestiary) {
-      var menu = showSettings ? settingsMenu : titleMenu;
+    // arrow/enter menu navigation on the title, pause and settings screens
+    var inPauseMenu = DA.state.mode === 'playing' && paused;
+    if ((DA.state.mode === 'title' || inPauseMenu) && !showBestiary) {
+      var baseMenu = inPauseMenu ? pauseMenu : titleMenu;
+      var baseSel = inPauseMenu ? pauseSel : menuSel;
+      var menu = showSettings ? settingsMenu : baseMenu;
       var moving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
                    ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
       if (moving && menu.length) {
-        var sel = showSettings ? setSel : menuSel;
+        var sel = showSettings ? setSel : baseSel;
         for (var tries = 0; tries < menu.length; tries++) {   // skip locked entries
           sel = (sel + moving + menu.length) % menu.length;
           if (!menu[sel].locked) break;
         }
-        if (showSettings) setSel = sel; else menuSel = sel;
+        if (showSettings) setSel = sel;
+        else if (inPauseMenu) pauseSel = sel;
+        else menuSel = sel;
       }
       if ((e.code === 'Enter' || e.code === 'Space') && menu.length) {
-        var pick = menu[showSettings ? setSel : menuSel];
+        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : menuSel)];
         if (pick && !pick.locked) pick.act();
       }
       if (e.code === 'Escape' && showSettings) showSettings = false;
@@ -700,9 +711,40 @@
     if (!paused) showBestiary = false;
     pauseWasHeld = pauseHeld;
     var cornerTap = DA.input.consumePauseTap();
-    var anyTap = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
     if (cornerTap) paused = !paused;                                  // the ⏸ chip toggles
-    else if (paused && DA.input.touchActive() && anyTap) paused = false; // tap ANYWHERE resumes
+    if (paused) {                                                     // pause MENU input
+      pauseMenu = buildPauseMenu();
+      settingsMenu = buildSettingsMenu();
+      var pClick = DA.input.consumeClick ? DA.input.consumeClick() : null;
+      var pTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
+      var pAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
+      if (showBestiary) {
+        if (pClick || pAny) showBestiary = false;
+      } else {
+        var pMenu = showSettings ? settingsMenu : pauseMenu;
+        if (pClick) {
+          var pci = hitMenu(pMenu, pClick.x, pClick.y);
+          if (pci >= 0 && !pMenu[pci].locked) {
+            if (showSettings) setSel = pci; else pauseSel = pci;
+            pMenu[pci].act();
+          } else if (!showSettings) paused = false;   // click outside resumes
+        }
+        if (pTap >= 0 && pMenu[pTap] && !pMenu[pTap].locked) pMenu[pTap].act();
+        else if (pTap < 0 && pAny && DA.input.touchActive() && !showSettings) paused = false;
+        var ppD = DA.input.padButton(13), ppU = DA.input.padButton(12), ppA = DA.input.padButton(0);
+        if ((ppD && !padNavWas.d) || (ppU && !padNavWas.u)) {
+          var pdir = ppD && !padNavWas.d ? 1 : -1;
+          var ps2 = showSettings ? setSel : pauseSel;
+          ps2 = (ps2 + pdir + pMenu.length) % pMenu.length;
+          if (showSettings) setSel = ps2; else pauseSel = ps2;
+        }
+        if (ppA && !padNavWas.a) {
+          var ppk = pMenu[showSettings ? setSel : pauseSel];
+          if (ppk && !ppk.locked) ppk.act();
+        }
+        padNavWas.d = ppD; padNavWas.u = ppU; padNavWas.a = ppA;
+      }
+    }
     if (paused) return;
     if (DA.fx.hitStop > 0) { DA.fx.hitStop -= dt; return; }   // the big-kill freeze frame
 
@@ -1127,6 +1169,7 @@
     }
     ctx.stroke();
     var active = (st.waveManager && st.waveManager.currentSpawnDoors) || [];
+    var anySiren = false;
     for (var i = 0; i < DA.DOORS.length; i++) {       // doors: gaps in the walls
       var d = DA.DOORS[i];
       var isExit = st.room && ((st.room.exits[d.dir] && st.roomCleared) ||
@@ -1148,6 +1191,7 @@
         if (P[4]) { ctx.fillRect(P[0] + 8, P[1], 8, P[3]); ctx.fillRect(P[0] + 24, P[1], 8, P[3]); }
         else { ctx.fillRect(P[0], P[1] + 8, P[2], 8); ctx.fillRect(P[0], P[1] + 24, P[2], 8); }
       }
+      if (isSpawning) anySiren = true;
       var lampNow = performance.now();
       var lamps = (d.dir === 'N' || d.dir === 'S') ?
         [[d.x - 70, d.y], [d.x + 70, d.y]] : [[d.x, d.y - 70], [d.x, d.y + 70]];
@@ -1162,8 +1206,13 @@
           ctx.fillStyle = 'rgba(126, 224, 129, ' + ga.toFixed(3) + ')';
           ctx.beginPath(); ctx.arc(LX, LY, 4, 0, 7); ctx.fill();
         } else if (isSpawning) {                       // red beacon: they're coming
-          var beam = (lampNow / 140) % 6.283;
-          ctx.fillStyle = 'rgba(220, 50, 60, 0.28)';
+          var beam = (lampNow / 140 + lp * 3.14) % 6.283;
+          ctx.fillStyle = 'rgba(220, 50, 60, 0.06)';   // the long sweep, painting the arena
+          ctx.beginPath();
+          ctx.moveTo(LX, LY);
+          ctx.arc(LX, LY, 460, beam, beam + 0.45);
+          ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(220, 50, 60, 0.28)';   // the beacon head
           ctx.beginPath();
           ctx.moveTo(LX, LY);
           ctx.arc(LX, LY, 26, beam, beam + 0.9);
@@ -1187,6 +1236,10 @@
         else if (d.dir === 'W') lx += 62; else lx -= 62;
         ctx.fillText('EXIT', lx, ly + 5);
       }
+    }
+    if (anySiren) {                                    // the whole set breathes red
+      ctx.fillStyle = 'rgba(220, 50, 60, ' + (0.025 + Math.sin(performance.now() / 180) * 0.02).toFixed(4) + ')';
+      ctx.fillRect(A.x0, A.y0, A.x1 - A.x0, A.y1 - A.y0);
     }
   }
 
@@ -1261,6 +1314,23 @@
                act: function () { window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener'); } });
     }
     return m;
+  }
+  function buildPauseMenu() {
+    var BW = 480, X = (DA.W - BW) / 2, Y0 = 340, G = 58, BH = 48;
+    return [
+      { x: X, y: Y0, w: BW, h: BH, color: '#7ee081', primary: true,
+        label: '▶  RESUME', state: DA.input.touchActive() ? 'or tap outside' : 'Esc / P',
+        act: function () { paused = false; } },
+      { x: X, y: Y0 + G, w: BW, h: BH, color: '#f2f2e9',
+        label: '⚙ SETTINGS', state: 'sound · music · effects',
+        act: function () { showSettings = true; setSel = 0; } },
+      { x: X, y: Y0 + G * 2, w: BW, h: BH, color: '#e8d44d',
+        label: "🧟 TONIGHT'S CAST", state: 'B',
+        act: function () { showBestiary = true; } },
+      { x: X, y: Y0 + G * 3, w: BW, h: BH, color: '#d43a4b',
+        label: '📺 QUIT TO TITLE SCREEN', state: 'run is abandoned',
+        act: function () { paused = false; showSettings = false; DA.state = { mode: 'title' }; } }
+    ];
   }
   function buildSettingsMenu() {
     var BW = 560, X = (DA.W - BW) / 2, Y0 = 312, G = 55, BH = 46;
@@ -1920,14 +1990,22 @@
 
     if (paused && st.mode === 'playing') {
       if (showBestiary) { drawBestiary(ctx); return; }
-      drawCenteredScreen(ctx, [
-        { text: 'PAUSED', font: 'bold 72px monospace', color: '#e8d44d', y: 300 },
-        { text: 'WE\'LL BE RIGHT BACK', font: '24px monospace', color: '#8888a0', y: 345 },
-        { text: DA.input.touchActive() ? 'TAP ANYWHERE TO RESUME' : 'Esc / P / 🎮 Start to resume',
-          font: 'bold 22px monospace', color: '#7ee081', y: 420 },
-        { text: 'B — WHO\'S WHO (know your monsters)', font: '19px monospace', color: '#8888a0', y: 458 }
-      ]);
-      if (st.room.map) drawMap(ctx, st);
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.8)';
+      ctx.fillRect(0, 0, DA.W, DA.H);
+      ctx.textAlign = 'center';
+      ctx.font = 'bold 72px monospace'; ctx.fillStyle = '#e8d44d';
+      ctx.fillText('PAUSED', DA.W / 2, 210);
+      ctx.font = '22px monospace'; ctx.fillStyle = '#8888a0';
+      ctx.fillText("WE'LL BE RIGHT BACK", DA.W / 2, 252);
+      if (showSettings) {
+        ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
+        ctx.fillText('⚙ SETTINGS', DA.W / 2, 296);
+        setSel = drawMenu(ctx, settingsMenu, setSel);
+      } else {
+        pauseSel = drawMenu(ctx, pauseMenu, pauseSel);
+        if (st.room.map) drawMap(ctx, st);
+      }
+      drawScreenFx(ctx);
       return;
     }
 

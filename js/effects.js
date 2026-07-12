@@ -237,31 +237,14 @@
     if (hapticsOn) DA.haptic(0.8, 120);      // a demo thump so the toggle is felt
     return hapticsOn;
   };
-  // iOS EXPERIMENT: Safari has no vibrate API, but toggling a native
-  // <input type="checkbox" switch> plays the system's light haptic tick
-  // (iOS 17.4+). One fixed intensity, unofficial, may break in any iOS
-  // release — but it costs nothing where it doesn't work.
-  var iosSwitch = null, iosTickAt = 0;
-  function iosTick() {
-    if (!document.body) return;
-    if (!iosSwitch) {
-      iosSwitch = document.createElement('input');
-      iosSwitch.type = 'checkbox';
-      iosSwitch.setAttribute('switch', '');
-      iosSwitch.style.cssText = 'position:absolute;left:-9999px;top:0';
-      document.body.appendChild(iosSwitch);
-    }
-    var now = performance.now();
-    if (now - iosTickAt < 60) return;     // don't machine-gun the Taptic Engine
-    iosTickAt = now;
-    iosSwitch.checked = !iosSwitch.checked;
-  }
+  // (An iOS <input switch> haptic hack was tried here and confirmed dead on
+  // real hardware — web pages simply don't get the Taptic Engine. Gamepad
+  // rumble and Android vibration below are the supported paths.)
   DA.haptic = function (strength, ms) {
     if (!hapticsOn) return;
     try {
-      if (DA.input && DA.input.touchActive && DA.input.touchActive()) {
-        if (navigator.vibrate) navigator.vibrate(ms);
-        else iosTick();                   // iPhones: the switch hack
+      if (navigator.vibrate && DA.input && DA.input.touchActive && DA.input.touchActive()) {
+        navigator.vibrate(ms);
       }
       var pads = navigator.getGamepads ? navigator.getGamepads() : [];
       for (var i = 0; i < pads.length; i++) {
