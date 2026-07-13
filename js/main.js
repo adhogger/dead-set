@@ -110,7 +110,7 @@
       st.countdownT = entryDir ? 3.0 : 0;   // 3-2-1 (fresh episodes walk in first)
       if (DA.primeWave) DA.primeWave(st.waveManager);   // sirens burn through the countdown
       if (!entryDir) {                      // fresh episode: walk in through the doors
-        st.entranceT = 1.2;
+        st.entranceT = 2.8;   // long enough for the full stroll at 130px/s
         var sd = DA.doorByDir('S');
         for (var wi = 0; wi < st.players.length; wi++) {
           var wp = st.players[wi];
@@ -723,16 +723,29 @@
     pauseWasHeld = pauseHeld;
     if (st.entranceT > 0) {                      // walking on set — no control yet
       st.entranceT -= dt;
+      var allThere = true;
       for (var ei = 0; ei < st.players.length; ei++) {
         var ep2 = st.players[ei];
         var tx = DA.W / 2 + (ei === 0 ? -26 : 26), ty = DA.H / 2;
-        var k2 = Math.min(1, 3.2 * dt);
-        ep2.vx = (tx - ep2.x) * 3.2; ep2.vy = (ty - ep2.y) * 3.2;   // feet animate
-        ep2.x += (tx - ep2.x) * k2;
-        ep2.y += (ty - ep2.y) * k2;
-        ep2.walkT = (ep2.walkT || 0) + Math.sqrt(ep2.vx * ep2.vx + ep2.vy * ep2.vy) * dt * 0.06;
+        var ddx = tx - ep2.x, ddy = ty - ep2.y;
+        var edist = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (edist > 4) {
+          allThere = false;
+          var espd = 130;                        // a deliberate walk, not a sprint
+          ep2.vx = ddx / edist * espd;
+          ep2.vy = ddy / edist * espd;
+          ep2.x += ep2.vx * dt;
+          ep2.y += ep2.vy * dt;
+          ep2.walkT = (ep2.walkT || 0) + espd * dt * 0.06;
+        } else {
+          ep2.vx = 0; ep2.vy = 0;
+        }
+        ep2.aimX = 0; ep2.aimY = -1;             // eyes front, into the studio
       }
-      if (st.entranceT <= 0) st.countdownT = 3.0;   // in position: cue the countdown
+      if (allThere || st.entranceT <= 0) {       // in position: cue the countdown
+        st.entranceT = 0;
+        st.countdownT = 3.0;
+      }
       if (st.introCardT > 0) st.introCardT -= dt;
       DA.updateFx(dt);
       return;
@@ -1489,7 +1502,7 @@
     // signal quality: full static as the feed cuts in, and again as it cuts out
     var glitch = Math.max(0, 1 - (hst.max - hst.t) / 0.3, 1 - hst.t / 0.38);
     var x = 14, y = 545, w = 478, h = 118;
-    ctx.globalAlpha = a * 0.82;                         // see-through: the action shows behind
+    ctx.globalAlpha = a * 0.7;                          // see-through: the action shows behind
     ctx.fillStyle = 'rgba(8, 8, 14, 0.78)';
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h);
@@ -1558,6 +1571,12 @@
       return;
     }
     // the 80s package: sequined gold suit, industrial fake tan, teeth you could ski off
+    var act = DA.presenterAct ? DA.presenterAct(DA.state) : 1;
+    var sway = Math.sin(now / 1300) * 0.05 +            // he never quite sits still
+               (act >= 4 ? Math.sin(now / 97) * 0.025 : 0);   // by the end, he shakes
+    ctx.translate(bx + bs / 2, by + bs);
+    ctx.rotate(sway);
+    ctx.translate(-(bx + bs / 2), -(by + bs));
     var sg = ctx.createLinearGradient(bx, by + bs - 26, bx + bs, by + bs);
     sg.addColorStop(0, '#f5cf4e'); sg.addColorStop(0.5, '#d4a017'); sg.addColorStop(1, '#f0c649');
     ctx.fillStyle = sg;                                 // flashy suit shoulders
@@ -1591,26 +1610,66 @@
     ctx.fillRect(hx - hr * 0.85, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx + hr * 0.15, hy - hr * 0.32, hr * 0.7, hr * 0.4);
     ctx.fillRect(hx - hr * 0.2, hy - hr * 0.22, hr * 0.4, 3);
-    ctx.fillStyle = '#7a3020';                          // the mouth flaps while he talks
-    ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.36, hr * (0.09 + 0.24 * open), 0, 0, 7); ctx.fill();
-    if (open > 0.25) {                                  // TEETH: dazzling, dentally impossible
+    var doneTalking = hst.t < 1.05;                     // the line has landed...
+    if (doneTalking) {                                  // ...and the GRIN stays. Too long.
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(hx - hr * 0.28, hy + hr * 0.52 - hr * (0.06 + 0.1 * open), hr * 0.56, hr * 0.12);
-      if ((Math.sin(now / 300) + 1) / 2 > 0.85) {       // the incisor PINGS periodically
-        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-        ctx.lineWidth = 1.4;
-        var gx = hx + hr * 0.22, gy = hy + hr * 0.5;
-        ctx.beginPath();
-        ctx.moveTo(gx - 4, gy); ctx.lineTo(gx + 4, gy);
-        ctx.moveTo(gx, gy - 4); ctx.lineTo(gx, gy + 4);
-        ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(hx, hy + hr * 0.5, hr * 0.52, hr * 0.17, 0, 0, 7);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.beginPath();                                  // tooth gaps
+      for (var tg = -2; tg <= 2; tg++) {
+        ctx.moveTo(hx + tg * hr * 0.18, hy + hr * 0.36);
+        ctx.lineTo(hx + tg * hr * 0.18, hy + hr * 0.64);
       }
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#7a3020';                        // the mouth flaps while he talks
+      ctx.beginPath(); ctx.ellipse(hx, hy + hr * 0.52, hr * 0.36, hr * (0.09 + 0.24 * open), 0, 0, 7); ctx.fill();
+      if (open > 0.25) {                                // TEETH: dazzling, dentally impossible
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(hx - hr * 0.28, hy + hr * 0.52 - hr * (0.06 + 0.1 * open), hr * 0.56, hr * 0.12);
+      }
+    }
+    if ((Math.sin(now / 340) + 1) / 2 > 0.86) {         // the incisor PINGS periodically
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineWidth = 1.4;
+      var gx = hx + hr * 0.22, gy = hy + hr * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(gx - 4, gy); ctx.lineTo(gx + 4, gy);
+      ctx.moveTo(gx, gy - 4); ctx.lineTo(gx, gy + 4);
+      ctx.stroke();
+    }
+    var sweep = (now / 3600) % 1;                       // a glint SWEEPS across the shades
+    if (sweep < 0.16) {
+      var gpx = hx - hr * 0.85 + sweep / 0.16 * hr * 1.7;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gpx - 2, hy - hr * 0.34);
+      ctx.lineTo(gpx + 3, hy + hr * 0.1);
+      ctx.stroke();
+    }
+    if (act >= 3) {                                     // the sweat starts in Act 3
+      for (var swd = 0; swd < 2; swd++) {
+        var fall = ((now / 1100) + swd * 0.45) % 1;
+        ctx.fillStyle = 'rgba(200, 230, 255, ' + (0.65 * (1 - fall)).toFixed(2) + ')';
+        ctx.beginPath();
+        ctx.arc(hx + (swd ? hr * 0.66 : -hr * 0.62), hy - hr * 0.25 + fall * hr * 0.9, 1.6, 0, 7);
+        ctx.fill();
+      }
+    }
+    if (act >= 4) {                                     // late acts: the feed itself is sick
+      ctx.fillStyle = 'rgba(120, 255, 150, 0.06)';
+      ctx.fillRect(bx, by, bs, bs);
     }
     ctx.restore();
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
     drawHostCaption(ctx, hst, x, y, w, bx, bs);
     if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
+    else if (act >= 4 && Math.random() < 0.05) drawCamStatic(ctx, x, y, w, h, 0.5);
     ctx.globalAlpha = 1;
   }
   function drawHostCaption(ctx, hst, x, y, w, bx, bs) {

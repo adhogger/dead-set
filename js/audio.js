@@ -15,7 +15,7 @@
       master.gain.value = 0.4;
       master.connect(ctx.destination);
       musicGain = ctx.createGain();          // music has its own tap (N toggles it)
-      musicGain.gain.value = musicOn ? 1 : 0;
+      musicGain.gain.value = musicOn ? 1.6 : 0;
       musicGain.connect(master);
     }
     if (ctx.state === 'suspended') ctx.resume();
@@ -34,7 +34,7 @@
   DA.toggleMusic = function () {
     musicOn = !musicOn;
     try { localStorage.setItem('deadset_music', musicOn ? '1' : '0'); } catch (err) {}
-    if (musicGain) musicGain.gain.value = musicOn ? 1 : 0;
+    if (musicGain) musicGain.gain.value = musicOn ? 1.6 : 0;
     if (DA.announce) DA.announce(musicOn ? 'MUSIC ON' : 'MUSIC OFF');
     return musicOn;
   };
@@ -141,9 +141,10 @@
   // sneak in on top as the pressure climbs; the boss adds a dark stab. On
   // death the heart stumbles, slows, and gives out before the fade.
   function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-  function lub(t, vol) {                         // the two-part thump
-    noteAt(t, 62, 0.15, 'sine', vol, 30);
-    noteAt(t + 0.13, 52, 0.13, 'sine', vol * 0.6, 28);
+  function lub(t, vol) {                         // the two-part thump — FELT, not implied
+    noteAt(t, 62, 0.16, 'sine', vol, 30);
+    noteAt(t, 110, 0.09, 'triangle', vol * 0.45, 70);   // overtone so phone speakers carry it
+    noteAt(t + 0.14, 52, 0.14, 'sine', vol * 0.75, 28);
   }
   function intensity() {                         // 0..1 from the horde; -1 while dying
     var st = DA.state;
@@ -170,8 +171,9 @@
         beatNo++;
         continue;
       }
-      var T = 1.5 - k * 1.0;                     // beat interval: 1.5s calm -> 0.5s frantic
-      lub(beatNext, k <= 0.06 ? 0.22 : 0.3 + k * 0.3);
+      // in combat the heart LOCKS to 123bpm and pounds; menus idle softly
+      var T = k <= 0.06 ? 1.5 : 60 / 123;
+      lub(beatNext, k <= 0.06 ? 0.22 : 0.55 + k * 0.35);
       if (k > 0.35) {                            // hats sneak in over the beat
         var sub = k > 0.65 ? 4 : 2;
         for (var h = 1; h < sub; h++) noiseAt(beatNext + (T / sub) * h, 0.025, 0.03 + k * 0.045, 7000);
