@@ -1160,10 +1160,25 @@
     ctx.moveTo(A.x1 - 14, A.y0 + 70);
     ctx.bezierCurveTo(A.x1 - 30, DA.H * 0.4, A.x1 - 8, DA.H * 0.6, A.x1 - 22, A.y1 - 70);
     ctx.stroke();
-    for (var tp = 0; tp < 4; tp++) {                   // camera tripods, one per corner
-      var tc = [[A.x0 + 62, A.y0 + 58], [A.x1 - 62, A.y0 + 58],
-                [A.x0 + 62, A.y1 - 58], [A.x1 - 62, A.y1 - 58]][tp];
-      drawTripodCam(ctx, tc[0], tc[1], Math.atan2(DA.H / 2 - tc[1], DA.W / 2 - tc[0]));
+    var sweep = performance.now() / 4000;
+    var followed = st.players || (st.player ? [st.player] : null);
+    for (var tp = 0; tp < 4; tp++) {                   // camera tripods, one per corner —
+      var tc = [[A.x0 + 62, A.y0 + 58], [A.x1 - 62, A.y0 + 58],           // ACTIVELY FILMING:
+                [A.x0 + 62, A.y1 - 58], [A.x1 - 62, A.y1 - 58]][tp];      // they track the cast
+      var camAng;
+      if (followed) {
+        var camStar = followed[tp % followed.length];
+        camAng = Math.atan2(camStar.y - tc[1], camStar.x - tc[0]) +
+                 Math.sin(sweep * 2.3 + tp * 2.1) * 0.05;   // a slower, steadier operator
+      } else {
+        camAng = Math.atan2(DA.H / 2 - tc[1], DA.W / 2 - tc[0]);
+      }
+      drawTripodCam(ctx, tc[0], tc[1], camAng);
+      ctx.fillStyle = 'rgba(150, 200, 255, 0.05)';    // ON-CAMERA LIGHT: cool blue-white,
+      ctx.beginPath();                                 // distinct from the warm followspots
+      ctx.moveTo(tc[0], tc[1]);
+      ctx.arc(tc[0], tc[1], 520, camAng - 0.075, camAng + 0.075);
+      ctx.closePath(); ctx.fill();
     }
     ctx.strokeStyle = 'rgba(232, 212, 77, 0.07)';     // game-show floor rings
     ctx.lineWidth = 3;
@@ -1172,10 +1187,8 @@
     }
     // studio spotlights, one per corner: followspots that TRACK the contestants
     // (with operator sway and lag) during the show; idle sweep on the title
-    var sweep = performance.now() / 4000;
     ctx.fillStyle = 'rgba(240, 235, 200, 0.035)';
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
-    var followed = st.players || (st.player ? [st.player] : null);
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li], a;
       if (followed) {
@@ -1501,12 +1514,19 @@
     var a = Math.max(0, Math.min(1, (hst.max - hst.t) / 0.25, hst.t / 0.4));
     // signal quality: full static as the feed cuts in, and again as it cuts out
     var glitch = Math.max(0, 1 - (hst.max - hst.t) / 0.3, 1 - hst.t / 0.38);
-    var x = 14, y = 545, w = 478, h = 118;
-    ctx.globalAlpha = a * 0.7;                          // see-through: the action shows behind
-    ctx.fillStyle = 'rgba(8, 8, 14, 0.78)';
+    var x = 14, y = 545, w = 478, h = 118, bs = 80, bx = x + 12;
+    ctx.save();                                         // the CARD is see-through...
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h);
-    ctx.fill();
+    ctx.clip();
+    ctx.globalAlpha = a * 0.6;
+    ctx.fillStyle = 'rgba(8, 8, 14, 0.85)';
+    ctx.fillRect(x, y, w, h);
+    ctx.globalAlpha = a;                                // ...but the host IMAGE square is OPAQUE
+    ctx.fillStyle = '#0c0c12';
+    ctx.fillRect(bx, y + 26, bs, bs);
+    ctx.restore();
+    ctx.globalAlpha = a;
     var bossCam = hst.speaker && hst.speaker !== 'host';
     ctx.strokeStyle = bossCam ? '#d43a4b' : '#3a3a48'; ctx.lineWidth = 2; ctx.stroke();
     ctx.textAlign = 'left';
@@ -1514,7 +1534,7 @@
     ctx.fillStyle = '#d43a4b';
     if (Math.floor(hst.t * 3) % 2 === 0) { ctx.beginPath(); ctx.arc(x + 15, y + 13, 3.5, 0, 7); ctx.fill(); }
     ctx.fillText(bossCam ? 'BOSS CAM' : 'HOST CAM', x + 24, y + 17);
-    var bx = x + 12, by = y + 26, bs = 80;              // the talking head
+    var by = y + 26;                                    // the talking head
     ctx.fillStyle = '#1c1c28';
     ctx.fillRect(bx, by, bs, bs);
     ctx.save();

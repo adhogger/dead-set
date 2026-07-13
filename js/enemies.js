@@ -151,6 +151,23 @@
         DA.clampToArena(ez);
       }
     }
+    // boss wall: the star of the show is a solid body too — the horde presses
+    // against him instead of walking through, same treatment as the player
+    for (var bi = 0; bi < arr.length; bi++) {
+      var boss = arr[bi];
+      if (!boss.isBoss) continue;
+      for (var zi = 0; zi < arr.length; zi++) {
+        var zz = arr[zi];
+        if (zz === boss || zz.isBoss) continue;
+        var bMinD = boss.r + zz.r;
+        var bOut = DA.norm(zz.x - boss.x, zz.y - boss.y);
+        if (bOut.len >= bMinD) continue;
+        if (bOut.len === 0) { bOut.x = Math.cos(zz.wobble); bOut.y = Math.sin(zz.wobble); }
+        zz.x = boss.x + bOut.x * bMinD;
+        zz.y = boss.y + bOut.y * bMinD;
+        DA.clampToArena(zz);
+      }
+    }
   };
   // Boomers light a 0.8s fuse near the player, then detonate. Called from the
   // main loop (needs the full game state for score/combo/effects).

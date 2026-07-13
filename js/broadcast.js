@@ -100,18 +100,21 @@
   var crowd = [];
   (function seatTheAudience() {
     var x, y;
+    // door exclusion zones are wider than the door gap itself (555-725, not
+    // 575-705) so no seat lands under the siren lamps flanking each door
+    // (lamps sit at center +/-70; this clears them with margin to spare)
     for (x = 205; x < 1235; x += 26) {
-      if (x > 575 && x < 705) continue;                // the south door
+      if (x > 555 && x < 725) continue;                // the south door + its sirens
       crowd.push({ x: x + DA.rand(-5, 5), y: 703 + DA.rand(-4, 4),
                    r: DA.rand(8, 13), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
     }
     for (x = 205; x < 1235; x += 26) {
-      if (x > 575 && x < 705) continue;                // the north door
+      if (x > 555 && x < 725) continue;                // the north door + its sirens
       crowd.push({ x: x + DA.rand(-5, 5), y: 15 + DA.rand(-3, 3),
                    r: DA.rand(7, 11), ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
     }
     for (y = 58; y < 665; y += 30) {
-      if (y > 295 && y < 425) continue;                // the side doors
+      if (y > 275 && y < 445) continue;                // the side doors + their sirens
       crowd.push({ x: 20 + DA.rand(-3, 3), y: y, r: DA.rand(7, 11),
                    ph: DA.rand(0, 6.28), sp: DA.rand(1.6, 2.6) });
       crowd.push({ x: DA.W - 20 + DA.rand(-3, 3), y: y, r: DA.rand(7, 11),
