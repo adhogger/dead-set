@@ -76,18 +76,18 @@
 
   DA.audio = {
     shot: function () {
-      noise(0.05, 0.16, 2600);
-      blip(300 + DA.rand(-40, 40), 0.05, 'square', 0.06, 90);
+      noise(0.05, 0.28, 2600);
+      blip(300 + DA.rand(-40, 40), 0.05, 'square', 0.11, 90);
     },
     splat: function (r) {
-      noise(0.14, 0.3, 500);
+      noise(0.14, 0.46, 500);
       // pitch tracks body size: swarmers pop high, brutes land with a thud
       var f = r ? DA.clamp(160 - r * 5, 55, 130) : 95;
-      blip(f + DA.rand(-12, 12), 0.12, 'sine', 0.25, 40);
+      blip(f + DA.rand(-12, 12), 0.12, 'sine', 0.38, 40);
     },
     spit: function () {                  // a spitter hocks a glob
-      blip(240, 0.1, 'sine', 0.12, 90);
-      noise(0.07, 0.08, 800);
+      blip(240, 0.1, 'sine', 0.18, 90);
+      noise(0.07, 0.13, 800);
     },
     elite: function () {                 // champion down: the audience pays out
       blip(660, 0.09, 'square', 0.13, 880);
@@ -106,7 +106,7 @@
       noise(0.2, 0.25, 900);
     },
     groan: function () {
-      blip(70 + DA.rand(0, 40), 0.6, 'sawtooth', 0.07, 50 + DA.rand(0, 20));
+      blip(70 + DA.rand(0, 40), 0.6, 'sawtooth', 0.13, 50 + DA.rand(0, 20));
     },
     sting: function () {                 // announcer fanfare: quick rising arpeggio
       blip(440, 0.12, 'triangle', 0.12);
@@ -138,9 +138,9 @@
   // ---- music: the show's pulse is literally a pulse ----
   // A lookahead scheduler beats the SAME lub-dub heartbeat at all times —
   // no separate quiet "resting" mode — locked to 123bpm, picking up to a
-  // modest 1.25x (~154bpm) as the horde thickens or a boss takes the stage.
-  // Hi-hats sneak in on top as the pressure climbs; the boss adds a dark
-  // stab. On death the heart stumbles, slows, and gives out before the fade.
+  // modest 1.25x (~154bpm) as the horde thickens or a boss takes the stage —
+  // the boss adds a dark stab. On death the heart stumbles, slows, and
+  // gives out before the fade.
   function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
   function lub(t, vol) {                         // the two-part thump, always
     noteAt(t, 62, 0.16, 'sine', vol, 30);
@@ -185,13 +185,6 @@
       var T123 = 60 / 123;
       var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35);
-      if (k > 0.35) {                             // a double hat, every other beat...
-        var hatEvery = k >= 1 ? 1 : 2;             // ...or every beat once things get dire (boss up)
-        if (beatNo % hatEvery === 0) {
-          noiseAt(beatNext + T / 2, 0.025, 0.03 + k * 0.045, 7000);
-          noiseAt(beatNext + T * 0.75, 0.02, 0.025 + k * 0.04, 7500);
-        }
-      }
       if (k >= 1 && beatNo % 4 === 2) noteAt(beatNext, hz(45), 0.14, 'square', 0.07); // boss stab
       beatNo++;
       beatNext += T;
