@@ -944,6 +944,11 @@
     return c;
   })();
   var scanPattern = null;
+  var abScratch = (function () {                    // scratch buffer for chromatic aberration
+    var c = document.createElement('canvas'); c.width = DA.W; c.height = DA.H;
+    return c;
+  })();
+  var abCtx = abScratch.getContext('2d');
 
   // per-room set dressing: deterministic decals pre-rendered once per room
   var decorCache = {};
@@ -1080,6 +1085,32 @@
     g.fill();
     return c;
   })();
+  // chromatic aberration: snapshot the fully-drawn frame, tint two copies
+  // red/cyan via a multiply pass, and lay them back offset in opposite
+  // directions with 'lighter' blending — a real per-channel-ish split
+  // instead of a plain double-exposure ghost
+  function drawAberration(ctx, amount) {
+    if (amount <= 0) return;
+    var off = 2 + amount * 7;
+    abCtx.globalCompositeOperation = 'source-over';
+    abCtx.clearRect(0, 0, DA.W, DA.H);
+    abCtx.drawImage(ctx.canvas, 0, 0);
+    abCtx.globalCompositeOperation = 'multiply';
+    abCtx.fillStyle = '#ff2a40';
+    abCtx.fillRect(0, 0, DA.W, DA.H);
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.4 * Math.min(1, amount);
+    ctx.drawImage(abScratch, off, 0);
+    abCtx.globalCompositeOperation = 'source-over';
+    abCtx.clearRect(0, 0, DA.W, DA.H);
+    abCtx.drawImage(ctx.canvas, 0, 0);
+    abCtx.globalCompositeOperation = 'multiply';
+    abCtx.fillStyle = '#20c8ff';
+    abCtx.fillRect(0, 0, DA.W, DA.H);
+    ctx.drawImage(abScratch, -off, 0);
+    ctx.restore();
+  }
   function drawScreenFx(ctx) {
     ctx.drawImage(vignette, 0, 0);
     if (!scanPattern) scanPattern = ctx.createPattern(scanlines, 'repeat');
@@ -1967,7 +1998,7 @@
     DA.drawPowerups(ctx, st.powerups);
     DA.drawBullets(ctx, st.bullets);
     DA.drawEnemyBullets(ctx, st.enemyBullets);
-    DA.drawEnemies(ctx, st.enemies);
+    DA.drawEnemies(ctx, st.enemies, st.players || [st.player]);
     for (var pw = 0; pw < st.players.length; pw++) {
       if (st.players[pw].dead) drawDeadPlayer(ctx, st.players[pw], st);
       else DA.drawPlayer(ctx, st.players[pw]);
@@ -2166,14 +2197,10 @@
       flashGrad.addColorStop(1, 'rgba(220, 30, 40, 0)');
       ctx.fillStyle = flashGrad;
       ctx.fillRect(0, 0, DA.W, DA.H);
-      if (hp.hurtFlashT > 0.24) {                // chromatic-aberration flicker on the hit itself
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.14;
-        ctx.drawImage(canvas, 4, 0);
-        ctx.drawImage(canvas, -4, 1);
-        ctx.restore();
-      }
+    }
+    if (st.mode === 'playing') {                 // chromatic aberration: big hits + a low-health baseline
+      var lowHealthAb = st.player.hearts === 1 ? 0.3 + 0.15 * Math.sin(performance.now() / 220) : 0;
+      drawAberration(ctx, Math.max(DA.fx.aberration, lowHealthAb));
     }
     var lb = findBoss(st);
     if (st.mode === 'playing' && lb && lb.laserPhase === 'warn') {  // boss laser telegraph: screen-edge glow

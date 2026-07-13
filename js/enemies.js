@@ -228,7 +228,7 @@
   // Zombies render from pre-baked sprite sheets (js/sprites.js): one drawImage
   // per body instead of ~15 live canvas ops, which is what pays for the
   // sprite-level detail. Dynamic effects stay live on top of the stamp.
-  DA.drawEnemies = function (ctx, arr) {
+  DA.drawEnemies = function (ctx, arr, players) {
     for (var i = 0; i < arr.length; i++) {
       var e = arr[i];
       if (e.isBoss) {
@@ -240,12 +240,28 @@
       else if (e.type === 'stalker' && DA.stalkerFaint(e)) ctx.globalAlpha = 0.18;
       var h = e.heading != null ? e.heading : 0;      // face where it walks (bestiary: face right)
       var ch = Math.cos(h), sh = Math.sin(h);
+      // wind-up telegraph: a spitter/gusher straining under its own attack —
+      // the body jitters and a tracking laser locks onto whoever it's about
+      // to hit, so the threat reads BEFORE the glob leaves its mouth
+      var wind = 0;
+      if (e.type === 'spitter' || e.type === 'gusher') {
+        wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
+      }
+      var jx = wind > 0 ? DA.rand(-3, 3) * wind : 0, jy = wind > 0 ? DA.rand(-3, 3) * wind : 0;
+      var ex = e.x + jx, ey = e.y + jy;
+      if (wind > 0 && players) {
+        var tgt = DA.nearestPlayer(players, e.x, e.y);
+        var flash = Math.sin(performance.now() / 40) > 0 ? 1 : 0.4;   // fast strobe
+        ctx.strokeStyle = 'rgba(255, 40, 40, ' + (wind * flash * 0.8).toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(tgt.x, tgt.y); ctx.stroke();
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.28)';             // grounding shadow
-      ctx.beginPath(); ctx.ellipse(e.x, e.y + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(ex, ey + e.r * 0.8, e.r * 0.85, e.r * 0.34, 0, 0, 7); ctx.fill();
       if (e.elite) {                                  // gold champion ring, always pulsing
         ctx.strokeStyle = 'rgba(232, 212, 77, ' + (0.55 + Math.sin(performance.now() / 150) * 0.25).toFixed(3) + ')';
         ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r + 6, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ex, ey, e.r + 6, 0, 7); ctx.stroke();
       }
       if (e.type === 'stalker') {                     // wisps trailing off the back
         ctx.fillStyle = '#584a80';
@@ -253,7 +269,7 @@
         for (var w = 1; w <= 2; w++) {
           ctx.globalAlpha *= 0.55;
           ctx.beginPath();
-          ctx.arc(e.x - ch * e.r * 0.7 * w, e.y - sh * e.r * 0.7 * w, e.r * (1 - w * 0.3), 0, 7);
+          ctx.arc(ex - ch * e.r * 0.7 * w, ey - sh * e.r * 0.7 * w, e.r * (1 - w * 0.3), 0, 7);
           ctx.fill();
         }
         ctx.globalAlpha = keepA;
@@ -264,34 +280,31 @@
         var img = e.hitFlash > 0 ? sheet.flash[frame] : sheet.frames[frame];
         var wsz = sheet.world * (e.r / sheet.baseR);  // elites stamp bigger
         ctx.save();
-        ctx.translate(e.x, e.y);
+        ctx.translate(ex, ey);
         ctx.rotate(h);
         ctx.drawImage(img, -wsz / 2, -wsz / 2, wsz, wsz);
         ctx.restore();
       } else {                                        // headless / unknown type fallback
         ctx.fillStyle = e.hitFlash > 0 ? '#ffffff' : e.color;
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, 7); ctx.fill();
       }
       if (e.elite) {                                  // gold body outline on champions
         ctx.strokeStyle = '#e8d44d';
         ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ex, ey, e.r, 0, 7); ctx.stroke();
       }
       var lit = e.fuse != null && Math.floor(e.fuse * 12) % 2 === 0;
       if (lit) {                                      // fuse strobe washes over the body
         ctx.fillStyle = 'rgba(255, 243, 176, 0.6)';
-        ctx.beginPath(); ctx.arc(e.x, e.y, e.r * 1.05, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(ex, ey, e.r * 1.05, 0, 7); ctx.fill();
       }
-      if (e.type === 'spitter' || e.type === 'gusher') {   // live jaw bulge while a glob winds up
-        var wind = e.spitT != null && e.spitT < SPIT_WINDUP ? 1 - e.spitT / SPIT_WINDUP : 0;
-        if (wind > 0) {
-          var hr = e.r * 0.55;
-          var hx = e.x + ch * e.r * 0.5, hy = e.y + sh * e.r * 0.5;
-          ctx.fillStyle = '#b8d44a';
-          ctx.beginPath();
-          ctx.arc(hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), 0, 7);
-          ctx.fill();
-        }
+      if (wind > 0) {                                 // live jaw bulge while a glob winds up
+        var hr = e.r * 0.55;
+        var hx = ex + ch * e.r * 0.5, hy = ey + sh * e.r * 0.5;
+        ctx.fillStyle = '#b8d44a';
+        ctx.beginPath();
+        ctx.arc(hx + ch * hr * 0.6, hy + sh * hr * 0.6, hr * (0.35 + wind * 0.55), 0, 7);
+        ctx.fill();
       }
       ctx.globalAlpha = 1;
     }

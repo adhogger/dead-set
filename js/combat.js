@@ -43,6 +43,7 @@
     }
     if (DA.haptic) DA.haptic(0.6, 90);
     if (DA.fx) DA.fx.hitStop = Math.max(DA.fx.hitStop || 0, 0.04);
+    if (DA.addAberration) DA.addAberration(0.75);
     if (DA.audio) DA.audio.roar();
     for (var i = st.enemies.length - 1; i >= 0; i--) {
       var e = st.enemies[i];
