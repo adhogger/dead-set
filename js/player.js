@@ -30,10 +30,14 @@
   // player will pass the last packet — same shape for all three.
   DA.updatePlayer = function (p, input, dt, boostsTicking) {
     var s = input || { moveX: 0, moveY: 0, aimX: 0, aimY: 0, firing: false };
-    var mul = p.downed ? 0.25 : 1;          // downed contestants crawl
-    DA.movePlayer(p, s.moveX * mul, s.moveY * mul, dt);
-    if (s.aimX || s.aimY) { p.aimX = s.aimX; p.aimY = s.aimY; }
-    p.firing = p.downed ? false : !!s.firing;
+    if (p.downed) {                         // a body takes NO input — frozen where it fell
+      p.vx = 0; p.vy = 0;
+      p.firing = false;
+    } else {
+      DA.movePlayer(p, s.moveX, s.moveY, dt);
+      if (s.aimX || s.aimY) { p.aimX = s.aimX; p.aimY = s.aimY; }
+      p.firing = !!s.firing;
+    }
     if (p.invuln > 0) p.invuln -= dt;
     if (p.fireCooldown > 0) p.fireCooldown -= dt;
     if (p.hurtFlashT > 0) p.hurtFlashT -= dt;
@@ -75,13 +79,30 @@
         ctx.beginPath(); ctx.arc(0, 0, p.r + 7, 0, 7); ctx.stroke();
       }
     }
-    if (p.downed) {                                  // crawling, waiting for a hand
-      ctx.rotate(Math.atan2(p.aimY, p.aimX));
+    if (p.downed) {                                  // still and dead — frozen where he fell
+      var deadA = p.downAim != null ? p.downAim : Math.atan2(p.aimY, p.aimX);
+      ctx.rotate(deadA);
       ctx.globalAlpha = 0.85;
       ctx.scale(1, 0.6);
       ctx.fillStyle = p.bot ? '#7fa3b5' : '#c9c9c0';
       ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
       ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();                                   // back to world space (p.x/p.y absolute)
+      // chalk-outline limbs splayed from the torso — a top-down crime-scene
+      // read so a downed body is unmistakably a BODY, not just a flat disc
+      ctx.save();
+      ctx.translate(p.x, p.y);                         // re-enter the body's frame, unsquashed
+      ctx.rotate(deadA);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(-p.r * 0.25, -p.r * 0.55); ctx.lineTo(-p.r * 1.6, -p.r * 1.15);   // arm
+      ctx.moveTo(-p.r * 0.25, p.r * 0.55); ctx.lineTo(-p.r * 1.7, p.r * 0.35);     // arm
+      ctx.moveTo(p.r * 0.5, -p.r * 0.4); ctx.lineTo(p.r * 1.7, -p.r * 0.75);       // leg
+      ctx.moveTo(p.r * 0.5, p.r * 0.4); ctx.lineTo(p.r * 1.8, p.r * 0.8);          // leg
+      ctx.stroke();
+      ctx.setLineDash([]);
       ctx.restore();
       if (p.reviveP > 0) {                           // the helping-hand ring
         ctx.strokeStyle = '#7ee081'; ctx.lineWidth = 4;

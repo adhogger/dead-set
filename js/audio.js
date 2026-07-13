@@ -147,16 +147,45 @@
     noteAt(t, 110, 0.09, 'triangle', vol * 0.45, 70);   // overtone so phone speakers carry it
     noteAt(t + 0.14, 52, 0.14, 'sine', vol * 0.75, 28);
   }
-  function intensity() {                         // 0..1 from the horde; -1 while dying
+  // ---- backing groove: filtered synth bass + robotic square-wave arp
+  // accents, riding the SAME beat grid as the heartbeat (Daft Punk by way
+  // of an arcade cabinet — think "Harder Better Faster Stronger"'s driving
+  // filtered bassline). Only plays once a wave is actually pushing zombies
+  // at you, so the lub-dub alone carries the quiet moments.
+  function grooveNote(t, semis, dur, vol, type, c0, c1) {
+    var osc = ctx.createOscillator(), filt = ctx.createBiquadFilter(), g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(hz(45 + semis), t);
+    filt.type = 'lowpass'; filt.Q.value = 7;
+    filt.frequency.setValueAtTime(c0, t);
+    filt.frequency.exponentialRampToValueAtTime(c1, t + dur * 0.6);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(filt); filt.connect(g); g.connect(musicGain);
+    osc.start(t); osc.stop(t + dur + 0.02);
+  }
+  // one step per beat; semitone offsets from a low A root — a driving,
+  // slightly moody minor line rather than a happy disco one
+  var GROOVE_BASS = [0, 0, 10, 10, 8, 8, 5, 3];
+  var GROOVE_ARP = [24, null, 27, 24, null, 31, 27, 24];   // octave-up robotic accents
+  // wave-gated, not headcount-scaled: HIGH the instant a wave starts sending
+  // zombies through the doors, staying high through the quiet gaps BETWEEN
+  // packs and through the last straggler, dropping only once the wave is
+  // actually cleared. That keeps the tension constant through a room instead
+  // of dipping every time a burst runs out.
+  function intensity() {                         // -1 while dying
     var st = DA.state;
     if (!st) return 0;
     if (st.mode === 'dying') return -1;
     if (st.mode !== 'playing') return 0;
     if (st.enemies) {
       for (var i = 0; i < st.enemies.length; i++) if (st.enemies[i].isBoss) return 1;
-      return DA.clamp(st.enemies.length / 50, 0.06, 1);
     }
-    return 0.06;
+    var wm = st.waveManager;
+    var waveActive = wm && !wm.done && wm.spawners;            // still sending zombies through a door
+    var enemiesOnScreen = st.enemies && st.enemies.length > 0; // or stragglers still standing
+    return (waveActive || enemiesOnScreen) ? 0.9 : 0.06;
   }
   var beatNext = 0, beatNo = 0;
   setInterval(function () {
@@ -178,6 +207,15 @@
       var T123 = 60 / 123;
       var T = k >= 0.85 ? T123 / 4 : (k >= 0.5 ? T123 / 2 : T123);
       lub(beatNext, 0.55 + k * 0.35);
+      if (k > 0.06) {                            // the groove kicks in once a wave is live
+        var gStep = beatNo % GROOVE_BASS.length;
+        grooveNote(beatNext, GROOVE_BASS[gStep], T * 0.85, 0.14 + k * 0.09,
+                  'sawtooth', 180, 1200 + k * 1400);
+        if (GROOVE_ARP[gStep] != null && k > 0.35) {   // arp accents once things heat up
+          grooveNote(beatNext + T * 0.5, GROOVE_ARP[gStep], T * 0.4, 0.07 + k * 0.05,
+                    'square', 1600, 3000);
+        }
+      }
       if (k > 0.35) {                            // hats sneak in over the beat
         var sub = k > 0.65 ? 4 : 2;
         for (var h = 1; h < sub; h++) noiseAt(beatNext + (T / sub) * h, 0.025, 0.03 + k * 0.045, 7000);

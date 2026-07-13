@@ -896,6 +896,8 @@
       }
       if (partnerUp) {                        // downed, not out: a partner can help
         pd.downed = true; pd.reviveP = 0;
+        pd.downAim = Math.atan2(pd.aimY, pd.aimX);   // freeze facing where he fell
+        if (DA.splat) DA.splat(pd.x, pd.y);          // a pool spreads under the body
         DA.addShake(10);
         DA.announce(pd.bot ? 'CAM-BOT IS DOWN!' : 'CONTESTANT DOWN!');
         if (DA.audio) DA.audio.hurt();
@@ -1558,7 +1560,7 @@
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
-      if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
+      if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);   // static on the IMAGE only
       ctx.globalAlpha = 1;
       return;
     }
@@ -1586,7 +1588,7 @@
       ctx.strokeStyle = '#d43a4b'; ctx.lineWidth = 1.5;
       ctx.strokeRect(bx, by, bs, bs);
       drawHostCaption(ctx, hst, x, y, w, bx, bs);
-      if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
+      if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);   // static on the IMAGE only
       ctx.globalAlpha = 1;
       return;
     }
@@ -1688,8 +1690,8 @@
     ctx.strokeStyle = '#3a3a48'; ctx.lineWidth = 1.5;
     ctx.strokeRect(bx, by, bs, bs);
     drawHostCaption(ctx, hst, x, y, w, bx, bs);
-    if (glitch > 0.02) drawCamStatic(ctx, x, y, w, h, glitch);
-    else if (act >= 4 && Math.random() < 0.05) drawCamStatic(ctx, x, y, w, h, 0.5);
+    if (glitch > 0.02) drawCamStatic(ctx, bx, by, bs, bs, glitch);   // static on the IMAGE only
+    else if (act >= 4 && Math.random() < 0.05) drawCamStatic(ctx, bx, by, bs, bs, 0.5);
     ctx.globalAlpha = 1;
   }
   function drawHostCaption(ctx, hst, x, y, w, bx, bs) {
