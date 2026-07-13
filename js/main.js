@@ -789,7 +789,10 @@
       var cdNow = Math.ceil(Math.max(st.countdownT, 0.001) / 1.0);
       if (cdNow !== cdPrev || st.countdownT <= 0) {
         if (DA.audio && DA.audio.tick) DA.audio.tick();
-        if (st.countdownT <= 0 && DA.addShake) DA.addShake(5);
+        if (st.countdownT <= 0) {
+          if (DA.addShake) DA.addShake(5);
+          if (DA.announce) DA.announce('HERE. WE. GO!!');
+        }
       }
     } else {
       DA.updateWaves(st.waveManager, st.enemies, dt);
