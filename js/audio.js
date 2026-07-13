@@ -137,10 +137,10 @@
 
   // ---- music: the show's pulse is literally a pulse ----
   // A lookahead scheduler beats the SAME lub-dub heartbeat at all times —
-  // no separate quiet "resting" mode — locked to 123bpm, doubling to 246
-  // then 492 as the horde thickens or a boss takes the stage. Hi-hats sneak
-  // in on top as the pressure climbs; the boss adds a dark stab. On death
-  // the heart stumbles, slows, and gives out before the fade.
+  // no separate quiet "resting" mode — locked to 123bpm, picking up to a
+  // modest 1.25x (~154bpm) as the horde thickens or a boss takes the stage.
+  // Hi-hats sneak in on top as the pressure climbs; the boss adds a dark
+  // stab. On death the heart stumbles, slows, and gives out before the fade.
   function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
   function lub(t, vol) {                         // the two-part thump, always
     noteAt(t, 62, 0.16, 'sine', vol, 30);
@@ -179,11 +179,11 @@
         beatNo++;
         continue;
       }
-      // the heart LOCKS to 123bpm and pounds AT ALL TIMES, then DOUBLES,
-      // then DOUBLES AGAIN as the horde thickens — never a slower "resting"
-      // cadence, just the same lub-dub racing faster
+      // the heart LOCKS to 123bpm and pounds AT ALL TIMES, picking up to
+      // 1.25x once a wave is live — never a slower "resting" cadence, just
+      // the same lub-dub racing a little faster, not doubling into a rave
       var T123 = 60 / 123;
-      var T = k >= 0.85 ? T123 / 4 : (k >= 0.5 ? T123 / 2 : T123);
+      var T = k >= 0.5 ? T123 / 1.25 : T123;
       lub(beatNext, 0.55 + k * 0.35);
       if (k > 0.35) {                            // hats sneak in over the beat
         var sub = k > 0.65 ? 4 : 2;
