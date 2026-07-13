@@ -129,7 +129,7 @@
   };
 
   DA.fx = { particles: [], splats: [], popups: [], queue: [], corpses: [], dust: [], rings: [], casings: [], host: null,
-            shakeX: 0, shakeY: 0, shakeVX: 0, shakeVY: 0, flung: [], aberration: 0 };
+            shakeX: 0, shakeY: 0, shakeVX: 0, shakeVY: 0, aberration: 0 };
 
   // The presenter appears ON CAMERA: a HOST CAM window in the corner with his
   // talking head and the line as a caption — his quips live there now, so the
@@ -150,36 +150,20 @@
   // per-size shards: a swarmer pops into confetti, a brute breaks into slabs
   DA.corpse = function (x, y, r, color, dx, dy) {
     var big = r >= 16;
-    var n = big ? 5 + Math.floor(r / 5) : 7 + Math.floor(r / 2.5);
+    var n = big ? 8 + Math.floor(r / 3.5) : 10 + Math.floor(r / 2);
     for (var i = 0; i < n; i++) {
-      var a = DA.rand(0, 6.283), speed = DA.rand(70, big ? 180 : 240);
+      var a = DA.rand(0, 6.283), speed = DA.rand(100, big ? 260 : 340);
       DA.fx.corpses.push({
         x: x, y: y,
-        vx: Math.cos(a) * speed + (dx || 0) * 120,
-        vy: Math.sin(a) * speed + (dy || 0) * 120 - DA.rand(30, 90),
-        rot: DA.rand(0, 6.283), rotV: DA.rand(-9, 9),
-        w: DA.rand(big ? r * 0.3 : 3, Math.max(4, r * (big ? 0.75 : 0.5))),
-        h: DA.rand(big ? r * 0.3 : 3, Math.max(4, r * (big ? 0.75 : 0.5))),
-        color: color, t: big ? 0.7 : 0.55, max: big ? 0.7 : 0.55, grav: 320
+        vx: Math.cos(a) * speed + (dx || 0) * 150,
+        vy: Math.sin(a) * speed + (dy || 0) * 150 - DA.rand(40, 120),
+        rot: DA.rand(0, 6.283), rotV: DA.rand(-13, 13),
+        w: DA.rand(big ? r * 0.35 : 4, Math.max(5, r * (big ? 0.9 : 0.65))),
+        h: DA.rand(big ? r * 0.35 : 4, Math.max(5, r * (big ? 0.9 : 0.65))),
+        color: color, t: big ? 0.95 : 0.75, max: big ? 0.95 : 0.75, grav: 360
       });
     }
     if (DA.fx.corpses.length > 320) DA.fx.corpses.splice(0, DA.fx.corpses.length - 320);
-  };
-
-  // Kill knockback: the WHOLE body (not just shard confetti) rockets off in
-  // the killing blow's direction and skids to a stop at the wall instead of
-  // just vanishing. A heavier hit sends it further. Bosses run their own
-  // death scene (main.js) so they're excluded.
-  DA.killFling = function (e, dmg, dx, dy) {
-    if (e.isBoss) return;
-    var ang = (dx || dy) ? Math.atan2(dy, dx) : DA.rand(0, 6.283);
-    var speed = 180 + Math.min(dmg || 1, 6) * 70;   // a pistol tap stumbles it; a rocket sends it flying
-    DA.fx.flung.push({
-      x: e.x, y: e.y, r: e.r, color: e.color,
-      vx: Math.cos(ang) * speed, vy: Math.sin(ang) * speed,
-      rot: DA.rand(0, 6.283), rotV: DA.rand(-10, 10),
-      t: 0.9, hitWall: false
-    });
   };
 
   // Chromatic aberration: a decaying 0..1 intensity, kicked up by big hits
@@ -327,27 +311,6 @@
     fx.shakeX += fx.shakeVX * dt;
     fx.shakeY += fx.shakeVY * dt;
     if (fx.aberration > 0) fx.aberration = Math.max(0, fx.aberration - 1.8 * dt);
-    for (var fl = fx.flung.length - 1; fl >= 0; fl--) {
-      var fc = fx.flung[fl];
-      fc.t -= dt;
-      if (fc.t <= 0) { fx.flung.splice(fl, 1); continue; }
-      var FRICTION = 3.2;
-      var slow = Math.max(0, 1 - FRICTION * dt);
-      fc.vx *= slow; fc.vy *= slow;
-      fc.x += fc.vx * dt; fc.y += fc.vy * dt;
-      fc.rot += fc.rotV * dt;
-      var FA = DA.ARENA;                          // thud into the wall instead of clipping through
-      if (fc.x < FA.x0 + fc.r || fc.x > FA.x1 - fc.r || fc.y < FA.y0 + fc.r || fc.y > FA.y1 - fc.r) {
-        fc.x = DA.clamp(fc.x, FA.x0 + fc.r, FA.x1 - fc.r);
-        fc.y = DA.clamp(fc.y, FA.y0 + fc.r, FA.y1 - fc.r);
-        if (!fc.hitWall) {
-          fc.hitWall = true;
-          if (DA.addShake) DA.addShake(4, fc.vx, fc.vy);
-          if (DA.splat) DA.splat(fc.x, fc.y);
-        }
-        fc.vx = 0; fc.vy = 0;
-      }
-    }
     for (var d = fx.dust.length - 1; d >= 0; d--) {
       var du = fx.dust[d];
       du.y += du.vy * dt; du.life -= dt;
@@ -416,21 +379,6 @@
       ctx.lineWidth = 1;
       ctx.strokeRect(-sh.w / 2, -sh.h / 2, sh.w, sh.h);
       ctx.restore();
-    }
-    ctx.globalAlpha = 1;
-    var flung = DA.fx.flung;                          // the whole body, flung by the kill
-    for (var fk = 0; fk < flung.length; fk++) {
-      var fb = flung[fk];
-      ctx.save();
-      ctx.translate(fb.x, fb.y);
-      ctx.rotate(fb.rot);
-      ctx.globalAlpha = Math.min(1, fb.t / 0.3);
-      ctx.scale(1, 0.65);
-      ctx.fillStyle = fb.color;
-      ctx.beginPath(); ctx.arc(0, 0, fb.r, 0, 7); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 2; ctx.stroke();
-      ctx.restore();
-      if (DA.drawCorpseLimbs) DA.drawCorpseLimbs(ctx, fb.x, fb.y, fb.r, fb.rot);
     }
     ctx.globalAlpha = 1;
   };
@@ -522,7 +470,6 @@
     if (e.isBoss || e.r >= 20) { DA.fx.hitStop = 0.05; DA.addAberration(0.55); }
     DA.splat(e.x, e.y, b && b.dx, b && b.dy);
     DA.corpse(e.x, e.y, e.r, e.color, b && b.dx, b && b.dy);
-    DA.killFling(e, b && b.dmg, b && b.dx, b && b.dy);
     DA.addShake(e.isBoss ? 14 : 3);
     if (DA.haptic && e.isBoss) DA.haptic(1, 350);
     if (DA.audio) DA.audio.splat(e.r);
