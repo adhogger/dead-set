@@ -2,7 +2,7 @@
   // The "broadcast package": dynamic set lighting, a live studio audience,
   // camera flashes, an on-air bug, and signal interference on big moments.
   // Purely cosmetic — sits on top of the sim, never touches it. V toggles.
-  var B = DA.broadcast = { on: true, t: 0, glitch: 0, applause: 0, flashes: [],
+  var B = DA.broadcast = { on: true, t: 0, glitch: 0, flashes: [],
                            lastCombo: 1, prevInv: 0, microT: 5 };
   try { B.on = localStorage.getItem('deadset_bfx') !== '0'; } catch (e) {}
 
@@ -128,7 +128,7 @@
                      t: 0.22, max: 0.22 });
   }
 
-  // screen-space pass: audience, flashes, APPLAUSE sign, on-air bug.
+  // screen-space pass: audience, flashes, on-air bug.
   // Drawn under the vignette + scanlines so it all sits "in the broadcast".
   B.drawFrame = function (ctx, st) {
     if (!B.on || !st.player) return;
@@ -136,14 +136,14 @@
     if (st.player.invuln > B.prevInv + 0.2) B.glitch = Math.max(B.glitch, 0.2);
     B.prevInv = st.player.invuln;
     ctx.save();
-    var dying = st.mode === 'dying';
-    var cheer = B.applause > 0 && !dying;           // nobody cheers a death
+    // the audience NEVER stops cheering — not for a multiplier, not for a
+    // death. That's the joke: the show doesn't care what it's cheering for.
     ctx.fillStyle = 'rgba(14, 14, 22, 0.96)';
     for (var i = 0; i < crowd.length; i++) {
       var m = crowd[i];
-      var bob = Math.sin(B.t * m.sp * (cheer ? 2.2 : 1) + m.ph) * (cheer ? 3 : (dying ? 0.35 : 1.3));
+      var bob = Math.sin(B.t * m.sp * 2.2 + m.ph) * 3;
       ctx.beginPath(); ctx.arc(m.x, m.y + bob, m.r, 0, 7); ctx.fill();
-      if (cheer && i % 3 === 0) {                      // arms up for the multiplier
+      if (i % 3 === 0) {                               // arms up, always
         ctx.beginPath(); ctx.arc(m.x - m.r * 0.8, m.y + bob - m.r - 3, 3.5, 0, 7); ctx.fill();
         ctx.beginPath(); ctx.arc(m.x + m.r * 0.8, m.y + bob - m.r - 4, 3.5, 0, 7); ctx.fill();
       }
@@ -187,7 +187,6 @@
     baseFx(dt);
     B.t += dt;
     if (B.glitch > 0) B.glitch -= dt;
-    if (B.applause > 0) B.applause -= dt;
     B.microT -= dt;                                    // ambient signal wobble
     if (B.microT <= 0) {
       B.microT = DA.rand(4, 9);
@@ -210,7 +209,6 @@
     } else if (Math.random() < Math.min(0.08 + st.combo * 0.03, 0.3)) {
       popFlash();                                         // otherwise just the odd snap
     }
-    if (comboStepped) B.applause = 1.4;                // the sign lights on a step up
     B.lastCombo = st.combo;
     if (e.isBoss || e.r >= 20) B.glitch = Math.max(B.glitch, 0.16); // big deaths jolt the signal
   };
