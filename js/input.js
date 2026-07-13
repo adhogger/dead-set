@@ -36,26 +36,31 @@
     return { x: 2, y: stickLike(3) ? 3 : -1, proven: false };
   };
 
-  var padWatch = null; // per-pad axis history, sampled every poll
+  // per-pad axis history, sampled every poll, keyed by gamepad SLOT INDEX —
+  // local co-op polls two pads a frame (seat 1 and seat 2), so a single
+  // shared watcher would thrash its calibration every time the two differing
+  // pad.id strings alternated through it. One watcher per slot fixes that.
+  var padWatchers = {};
   function watchPad(pad) {
-    if (!padWatch || padWatch.id !== pad.id) {
-      padWatch = { id: pad.id, min: pad.axes.slice(), max: pad.axes.slice(),
+    var w = padWatchers[pad.index];
+    if (!w || w.id !== pad.id) {
+      w = padWatchers[pad.index] = { id: pad.id, min: pad.axes.slice(), max: pad.axes.slice(),
                    streak: pad.axes.map(function () { return 0; }),
                    bestStreak: pad.axes.map(function () { return 0; }),
                    lockedX: 2, lockedY: -1 };
     }
     for (var i = 0; i < pad.axes.length; i++) {
       var v = pad.axes[i];
-      if (v < padWatch.min[i]) padWatch.min[i] = v;
-      if (v > padWatch.max[i]) padWatch.max[i] = v;
+      if (v < w.min[i]) w.min[i] = v;
+      if (v > w.max[i]) w.max[i] = v;
       if (Math.abs(v) < 0.15) {
-        padWatch.streak[i]++;
-        if (padWatch.streak[i] > padWatch.bestStreak[i]) padWatch.bestStreak[i] = padWatch.streak[i];
+        w.streak[i]++;
+        if (w.streak[i] > w.bestStreak[i]) w.bestStreak[i] = w.streak[i];
       } else {
-        padWatch.streak[i] = 0;
+        w.streak[i] = 0;
       }
     }
-    return padWatch;
+    return w;
   }
 
   // Decide (and permanently lock) which axes the right stick lives on.
@@ -80,7 +85,7 @@
   };
 
   var sticks = { move: null, aim: null };   // { id, ox, oy, cx, cy }
-  var pauseTapped = false, botTapped = false, synTapped = false, castTapped = false, anyTapped = false;
+  var pauseTapped = false, castTapped = false, anyTapped = false;
   function canvasPt(t) { return DA.screenToCanvas(t.clientX, t.clientY, window.innerWidth, window.innerHeight); }
 
   window.addEventListener('touchstart', function (e) {
@@ -91,9 +96,7 @@
       var p = canvasPt(t);
       var zone = DA.touchUIBlock && DA.touchUIBlock(p.x, p.y);
       if (zone) {
-        if (zone === 'bot') botTapped = true;
-        else if (zone === 'syn') synTapped = true;
-        else if (zone === 'cast') castTapped = true;
+        if (zone === 'cast') castTapped = true;
         else if (typeof zone === 'string' && zone.indexOf('btn:') === 0) btnTapped = +zone.slice(4);
         else pauseTapped = true;
         continue;
@@ -185,6 +188,24 @@
       return { moveX: mx, moveY: my, aimX: maim.x, aimY: maim.y,
                firing: mouse.down, device: 'keyboard' };
     },
+    // a SPECIFIC gamepad slot's state, for local co-op's second seat — state()
+    // above always claims the FIRST connected pad (that's seat one's), so
+    // seat two needs a direct, explicit slot instead of racing for the same
+    // one. No keyboard/mouse/touch fallback: seat one already owns those.
+    padState: function (padIndex, playerX, playerY) {
+      var pads = navigator.getGamepads ? navigator.getGamepads() : [];
+      var pad = pads[padIndex];
+      if (!pad || !pad.connected) return { moveX: 0, moveY: 0, aimX: 0, aimY: 0, firing: false };
+      var watch = watchPad(pad);
+      var pick = aimAxesFor(watch);
+      var gx = DA.applyDeadzone(pad.axes[0]), gy = DA.applyDeadzone(pad.axes[1]);
+      var ax = DA.applyDeadzone(pad.axes[pick.x] || 0);
+      var ay = pick.y >= 0 ? DA.applyDeadzone(pad.axes[pick.y] || 0) : 0;
+      var fireBtn = pad.buttons[7] && pad.buttons[7].pressed;
+      var aim = DA.norm(ax, ay);
+      return { moveX: gx, moveY: gy, aimX: aim.x, aimY: aim.y,
+               firing: (ax !== 0 || ay !== 0 || fireBtn), device: 'gamepad' };
+    },
     touchActive: function () { return device === 'touch'; },
     touchSticks: function () { return sticks; },
     consumePauseTap: function () { var v = pauseTapped; pauseTapped = false; return v; },
@@ -192,9 +213,7 @@
     consumeClick: function () { var v = clickPt; clickPt = null; return v; },
     consumeBtnTap: function () { var v = btnTapped; btnTapped = -1; return v; },
     mousePos: function () { return { x: mouse.x, y: mouse.y }; },
-    consumeBotTap: function () { var v = botTapped; botTapped = false; return v; },
     consumeCastTap: function () { var v = castTapped; castTapped = false; return v; },
-    consumeSynTap: function () { var v = synTapped; synTapped = false; return v; },
     // true while any "start the game" input is held: fire, click, tap, Enter or Space
     startHeld: function () {
       if (keys.Enter || keys.Space) return true;

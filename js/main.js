@@ -147,7 +147,11 @@
       st.saidLines = carry.saidLines;         // the host never repeats himself all run
     }
     st.players = [st.player];                 // st.player stays the human, always
-    if (botOn) {
+    if (localCoopOn) {
+      var mate = DA.makePlayer();
+      mate.localP2 = true;                    // seat 2 reads its OWN gamepad (slot 2), never seat 1's
+      st.players.push(mate);
+    } else if (botOn) {
       var buddy = DA.makePlayer();
       buddy.bot = true;
       st.players.push(buddy);
@@ -257,8 +261,9 @@
   var paused = false;
   var showBestiary = false;   // pause-screen "who's who" overlay
   var showSettings = false;   // title-screen settings panel
-  var menuSel = 0, setSel = 0, pauseSel = 0;   // keyboard/gamepad cursor per menu
-  var titleMenu = [], settingsMenu = [], pauseMenu = [];   // rebuilt every frame
+  var showCoopChoice = false; // title-screen "how are you playing?" submenu
+  var menuSel = 0, setSel = 0, pauseSel = 0, coopSel = 0;   // keyboard/gamepad cursor per menu
+  var titleMenu = [], settingsMenu = [], pauseMenu = [], coopMenu = [];   // rebuilt every frame
 
   function toggleShake() {
     DA.fx.shakeOn = DA.fx.shakeOn === false;
@@ -272,7 +277,6 @@
     DA.announce(DA.broadcast.on ? 'BROADCAST FX ON' : 'BROADCAST FX OFF');
   }
   var pauseWasHeld = false;
-  var botWasHeld = false;
   var padNavWas = { d: false, u: false, a: false };   // gamepad menu-nav edges
 
   // touch UI: taps starting in the top-right corner pause instead of aiming
@@ -322,12 +326,8 @@
     } catch (e) {}
     return DA.dailySeed();
   }
-  var botOn = load('deadset_bot') === '1';
-  function toggleBot() {
-    botOn = !botOn;
-    store('deadset_bot', botOn ? '1' : '0');
-    DA.announce(botOn ? 'CAM-BOT JOINS THE SHOW' : 'CAM-BOT BENCHED');
-  }
+  var botOn = load('deadset_bot') === '1';        // persisted: last "with a bot" choice
+  var localCoopOn = false;                        // set fresh each time 2P > LOCAL CO-OP is picked
   var showDebug = false;      // G toggles a raw-gamepad readout for troubleshooting
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyG') showDebug = !showDebug;
@@ -338,14 +338,13 @@
     if (e.code === 'Escape' && showBestiary) showBestiary = false;
     if (e.code === 'KeyK') toggleShake();
     if (e.code === 'KeyV') toggleFx();
-    if (e.code === 'KeyB' && DA.state.mode === 'title' && !showSettings) toggleBot();
     if (e.code === 'KeyI' && DA.state.mode === 'title') { showSettings = false; DA.state = { mode: 'intro', page: 0 }; }
     if (e.code === 'KeyH' && DA.state.mode === 'title' && DA.net) DA.net.host();
     // arrow/enter menu navigation on the title, pause and settings screens
     var inPauseMenu = DA.state.mode === 'playing' && paused;
     if ((DA.state.mode === 'title' || inPauseMenu) && !showBestiary) {
-      var baseMenu = inPauseMenu ? pauseMenu : titleMenu;
-      var baseSel = inPauseMenu ? pauseSel : menuSel;
+      var baseMenu = inPauseMenu ? pauseMenu : (showCoopChoice ? coopMenu : titleMenu);
+      var baseSel = inPauseMenu ? pauseSel : (showCoopChoice ? coopSel : menuSel);
       var menu = showSettings ? settingsMenu : baseMenu;
       var moving = (e.code === 'ArrowDown' || e.code === 'KeyS') ? 1 :
                    ((e.code === 'ArrowUp' || e.code === 'KeyW') ? -1 : 0);
@@ -357,13 +356,15 @@
         }
         if (showSettings) setSel = sel;
         else if (inPauseMenu) pauseSel = sel;
+        else if (showCoopChoice) coopSel = sel;
         else menuSel = sel;
       }
       if ((e.code === 'Enter' || e.code === 'Space') && menu.length) {
-        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : menuSel)];
+        var pick = menu[showSettings ? setSel : (inPauseMenu ? pauseSel : (showCoopChoice ? coopSel : menuSel))];
         if (pick && !pick.locked) pick.act();
       }
       if (e.code === 'Escape' && showSettings) showSettings = false;
+      else if (e.code === 'Escape' && showCoopChoice) showCoopChoice = false;
     }
     if (e.code === 'KeyD' && DA.state.mode === 'title' && window.SLASHTV_DONATE_URL) {
       window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener');
@@ -400,25 +401,15 @@
       ctx.beginPath(); ctx.arc(z.x, z.y, z.r * bob, 0, 7); ctx.fill();
     }
   }
-  var endlessKeyHeld = false, ep2KeyHeld = false, ep3KeyHeld = false, ep3WasHeld = false,
-      synKeyHeld = false, synWasHeld = false;
+  var endlessKeyHeld = false;
   window.addEventListener('keydown', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = true;
-    if (e.code === 'Digit2') ep2KeyHeld = true;
-    if (e.code === 'Digit3') synKeyHeld = true;
-    if (e.code === 'Digit4') ep3KeyHeld = true;
   });
   window.addEventListener('keyup', function (e) {
     if (e.code === 'KeyE') endlessKeyHeld = false;
-    if (e.code === 'Digit2') ep2KeyHeld = false;
-    if (e.code === 'Digit3') synKeyHeld = false;
-    if (e.code === 'Digit4') ep3KeyHeld = false;
   });
 
   function endlessUnlocked() { return load('deadset_ep1') === '1'; }
-  function ep2Unlocked() { return load('deadset_ep1') === '1'; }
-  function ep3Unlocked() { return load('deadset_ep2') === '1'; }
-  var ep2WasHeld = false;
 
   function drawDebug(ctx) {
     var info = DA.input.debugInfo();
@@ -650,6 +641,7 @@
       if (st.mode === 'title') {
         titleMenu = buildTitleMenu();
         settingsMenu = buildSettingsMenu();
+        coopMenu = buildCoopMenu();
         var click = DA.input.consumeClick ? DA.input.consumeClick() : null;
         var btnTap = DA.input.consumeBtnTap ? DA.input.consumeBtnTap() : -1;
         var tapAny = DA.input.consumeAnyTap ? DA.input.consumeAnyTap() : false;
@@ -659,11 +651,11 @@
           DA.updateFx(dt);
           return;
         }
-        var menu = showSettings ? settingsMenu : titleMenu;
+        var menu = showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu);
         if (click) {                               // mouse: click a button, nothing else starts
           var ci = hitMenu(menu, click.x, click.y);
           if (ci >= 0 && !menu[ci].locked) {
-            if (showSettings) setSel = ci; else menuSel = ci;
+            if (showSettings) setSel = ci; else if (showCoopChoice) coopSel = ci; else menuSel = ci;
             menu[ci].act();
           }
         }
@@ -672,15 +664,15 @@
         var padD = DA.input.padButton(13), padU = DA.input.padButton(12), padA = DA.input.padButton(0);
         if ((padD && !padNavWas.d) || (padU && !padNavWas.u)) {
           var dir = padD && !padNavWas.d ? 1 : -1;
-          var s2 = showSettings ? setSel : menuSel;
+          var s2 = showSettings ? setSel : (showCoopChoice ? coopSel : menuSel);
           for (var tr = 0; tr < menu.length; tr++) {
             s2 = (s2 + dir + menu.length) % menu.length;
             if (!menu[s2].locked) break;
           }
-          if (showSettings) setSel = s2; else menuSel = s2;
+          if (showSettings) setSel = s2; else if (showCoopChoice) coopSel = s2; else menuSel = s2;
         }
         if (padA && !padNavWas.a) {
-          var pk = menu[showSettings ? setSel : menuSel];
+          var pk = menu[showSettings ? setSel : (showCoopChoice ? coopSel : menuSel)];
           if (pk && !pk.locked) pk.act();
         }
         padNavWas.d = padD; padNavWas.u = padU; padNavWas.a = padA;
@@ -691,25 +683,9 @@
       }
       var endlessHeld = endlessKeyHeld || DA.input.padButton(3);
       if (endlessUnlocked() && endlessHeld && !endlessWasHeld) DA.state = newGame('endless');
-      var ep2Held = ep2KeyHeld || DA.input.padButton(2);
-      if (ep2Unlocked() && ep2Held && !ep2WasHeld) DA.state = newGame('writers');
-      var ep3Held = ep3KeyHeld || DA.input.padButton(1);
-      if (ep3Unlocked() && ep3Held && !ep3WasHeld) DA.state = newGame('controlbooth');
-      var synHeld = synKeyHeld || DA.input.padButton(5);
-      var synTap = st.mode === 'title' && DA.input.consumeSynTap && DA.input.consumeSynTap();
-      if ((synHeld && !synWasHeld) || synTap) {
-        DA.state = newGame(DA.generateEpisode(synSeed()).startId);
-      }
-      synWasHeld = synHeld;
-      var botHeld = DA.input.padButton(4);
-      if (st.mode === 'title' && botHeld && !botWasHeld) toggleBot();
-      botWasHeld = botHeld;
-      if (st.mode === 'title' && DA.input.consumeBotTap && DA.input.consumeBotTap()) toggleBot();
       if (st.mode === 'title' && DA.input.consumeCastTap && DA.input.consumeCastTap()) showBestiary = !showBestiary;
       startWasHeld = startHeld;
       endlessWasHeld = endlessHeld;
-      ep2WasHeld = ep2Held;
-      ep3WasHeld = ep3Held;
       updateAttract(dt);
       DA.updateFx(dt);
       return;
@@ -795,6 +771,8 @@
       if (pl.remote) {           // seat 2 is a live guest: play their last packet
         inp = (DA.net && DA.net.freshGuestInput()) ||
               { moveX: 0, moveY: 0, aimX: pl.aimX, aimY: pl.aimY, firing: false };
+      } else if (pl.localP2) {   // local co-op: seat 2 reads gamepad slot 2 directly
+        inp = DA.input.padState(1, pl.x, pl.y);
       } else {
         inp = pl.bot ? DA.botInput(st, pl, dt) : DA.input.state(pl.x, pl.y);
       }
@@ -1324,48 +1302,72 @@
   // ---- the title menu: REAL buttons, not hotkey trivia. Click, tap, arrow
   // keys + Enter, or gamepad d-pad + A all drive the same list. Locked modes
   // stay visible with a lock + how to earn them, instead of vanishing.
+  function startShow() {   // first-ever launch tells the story first; everyone else goes straight in
+    DA.state = load('slashtv_intro') !== '1' ? { mode: 'intro', page: 0 } : newGame();
+  }
   function buildTitleMenu() {
-    var ep2u = ep2Unlocked(), ep3u = ep3Unlocked(), endu = endlessUnlocked();
-    var L = 170, R = 665, BW = 445, BH = 48, Y0 = 372, G = 60;
-    var m = [];
-    m.push({ x: L, y: Y0, w: BW, h: BH, color: '#7ee081', primary: true,
-             label: '▶  PLAY — EPISODE 1', state: 'PILOT SEASON',
-             act: function () { DA.state = load('slashtv_intro') !== '1' ? { mode: 'intro', page: 0 } : newGame(); } });
-    m.push({ x: L, y: Y0 + G, w: BW, h: BH, color: '#c95d63', locked: !ep2u,
-             label: 'EPISODE 2: SWEEPS WEEK',
-             state: ep2u ? (load('deadset_ep2') === '1' ? 'BEATEN ✓' : '') : '🔒 beat Episode 1',
-             act: function () { DA.state = newGame('writers'); } });
-    m.push({ x: L, y: Y0 + G * 2, w: BW, h: BH, color: '#2fd7c4', locked: !ep3u,
-             label: 'EPISODE 3: LIVE FINALE',
-             state: ep3u ? (load('deadset_ep3') === '1' ? 'BEATEN ✓' : '') : '🔒 beat Episode 2',
-             act: function () { DA.state = newGame('controlbooth'); } });
-    m.push({ x: L, y: Y0 + G * 3, w: BW, h: BH, color: '#b78bff',
-             label: 'SYNDICATION', state: 'tonight: #' + synSeed(),
-             act: function () { DA.state = newGame(DA.generateEpisode(synSeed()).startId); } });
-    m.push({ x: L, y: Y0 + G * 4, w: BW, h: BH, color: '#5bc8d6', locked: !endu,
-             label: 'ENDLESS ARENA',
-             state: endu ? 'best: wave ' + (load('deadset_best_waves') || '0') : '🔒 beat Episode 1',
-             act: function () { DA.state = newGame('endless'); } });
+    var endu = endlessUnlocked();
+    var BW = 560, X = (DA.W - BW) / 2, Y0 = 308, G = 52, BH = 48;
+    var m = [], row = 0;
+    function push(opts) {
+      opts.x = X; opts.y = Y0 + G * row++; opts.w = BW; opts.h = BH;
+      m.push(opts);
+    }
+    push({ color: '#7ee081', primary: true, label: '▶  1 PLAYER', state: 'PILOT SEASON',
+           act: function () { botOn = false; localCoopOn = false; startShow(); } });
+    push({ color: '#9ad7ff', label: '👥  2 PLAYER', state: 'local, online, or with a bot',
+           act: function () { showCoopChoice = true; coopSel = 0; } });
     var hosting = DA.net && DA.net.status === 'hosting';
-    m.push({ x: R, y: Y0, w: BW, h: BH, color: botOn ? '#a8c8d8' : '#f2f2e9',
-             label: '🤖 CAM-BOT PARTNER', state: botOn ? 'ON ✓' : 'OFF',
-             act: toggleBot });
-    m.push({ x: R, y: Y0 + G, w: BW, h: BH, color: '#9ad7ff', locked: !DA.net,
-             label: '🌍 HOST ONLINE CO-OP',
-             state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
-             act: function () { if (DA.net) DA.net.host(); } });
-    m.push({ x: R, y: Y0 + G * 2, w: BW, h: BH, color: '#e8d44d',
-             label: "🧟 TONIGHT'S CAST", state: 'know your monsters',
-             act: function () { showBestiary = true; } });
-    m.push({ x: R, y: Y0 + G * 3, w: BW, h: BH, color: '#f2f2e9',
-             label: '⚙ SETTINGS', state: 'sound · music · effects',
-             act: function () { showSettings = true; setSel = 0; } });
+    push({ color: '#9ad7ff', locked: !DA.net, label: '🌍  ONLINE MULTIPLAYER',
+           state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
+           act: function () { botOn = false; localCoopOn = false; if (DA.net) DA.net.host(); } });
+    push({ color: '#5bc8d6', locked: !endu, label: '♾  ENDLESS MODE',
+           state: endu ? 'best: wave ' + (load('deadset_best_waves') || '0') : '🔒 beat Episode 1',
+           act: function () { DA.state = newGame('endless'); } });
+    push({ color: '#f2f2e9', label: '⚙  SETTINGS', state: 'sound · music · effects',
+           act: function () { showSettings = true; setSel = 0; } });
+    push({ color: '#e8d44d', label: "🧟  TONIGHT'S CAST", state: 'know your monsters',
+           act: function () { showBestiary = true; } });
     if (window.SLASHTV_DONATE_URL) {
-      m.push({ x: R, y: Y0 + G * 4, w: BW, h: BH, color: '#e8d44d',
-               label: '💛 SUPPORT THE SHOW', state: 'optional — no ads, ever',
-               act: function () { window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener'); } });
+      push({ color: '#e8d44d', label: '💛  SUPPORT THE SHOW', state: 'optional — no ads, ever',
+             act: function () { window.open(window.SLASHTV_DONATE_URL, '_blank', 'noopener'); } });
     }
     return m;
+  }
+  // the "how are you playing?" submenu reached from 2 PLAYER — three ways to
+  // fill seat 2, each with a little picture (see drawModeIcon) of who's playing
+  // where: local co-op needs a second controller (keyboard's already seat 1's),
+  // online hands seat 2 to a guest on their own device, cam-bot fills it with AI
+  function buildCoopMenu() {
+    var BW = 620, X = (DA.W - BW) / 2, Y0 = 330, G = 96, BH = 82;
+    var hosting = DA.net && DA.net.status === 'hosting';
+    return [
+      { x: X, y: Y0, w: BW, h: BH, color: '#7ee081', icon: 'local',
+        label: 'LOCAL CO-OP', state: 'one screen — plug in a 2nd controller',
+        act: function () {
+          botOn = false; localCoopOn = true;
+          startShow();
+          showCoopChoice = false;
+        } },
+      { x: X, y: Y0 + G, w: BW, h: BH, color: '#9ad7ff', locked: !DA.net, icon: 'online',
+        label: 'ONLINE CO-OP',
+        state: hosting ? 'ROOM ' + (DA.net.code || '····') : 'get a link to share',
+        act: function () {
+          botOn = false; localCoopOn = false;
+          if (DA.net) DA.net.host();
+          showCoopChoice = false;
+        } },
+      { x: X, y: Y0 + G * 2, w: BW, h: BH, color: '#a8c8d8', icon: 'bot',
+        label: 'CAM-BOT PARTNER', state: 'one screen, one controller — AI takes seat 2',
+        act: function () {
+          localCoopOn = false; botOn = true;
+          store('deadset_bot', '1');
+          startShow();
+          showCoopChoice = false;
+        } },
+      { x: X, y: Y0 + G * 3 + 14, w: BW, h: 44, color: '#f2f2e9',
+        label: '←  BACK', state: '', act: function () { showCoopChoice = false; } }
+    ];
   }
   function buildPauseMenu() {
     var BW = 480, X = (DA.W - BW) / 2, Y0 = 340, G = 58, BH = 48;
@@ -1409,8 +1411,51 @@
   }
   DA.titleHit = function (x, y) {   // touch taps route through input.js as 'btn:N'
     if (DA.state.mode !== 'title' || showBestiary) return -1;
-    return hitMenu(showSettings ? settingsMenu : titleMenu, x, y);
+    return hitMenu(showSettings ? settingsMenu : (showCoopChoice ? coopMenu : titleMenu), x, y);
   };
+  // small canvas-drawn glyphs for the 2-player submenu: TVs + gamepads sketch
+  // out HOW each mode plays before anyone has to read the label
+  function drawModeIcon(ctx, kind, cx, cy) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    function tv(x, y, s) {
+      ctx.fillStyle = '#14141c'; ctx.fillRect(x, y, s, s * 0.72);
+      ctx.strokeStyle = '#6a6a7c'; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, s, s * 0.72);
+      ctx.fillStyle = '#3a5a7a'; ctx.fillRect(x + 3, y + 3, s - 6, s * 0.72 - 6);
+    }
+    function pad(x, y, s) {
+      ctx.fillStyle = '#e8d44d';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, s, s * 0.6, s * 0.22); else ctx.rect(x, y, s, s * 0.6);
+      ctx.fill();
+      ctx.fillStyle = '#14141c';
+      ctx.beginPath(); ctx.arc(x + s * 0.26, y + s * 0.3, s * 0.1, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + s * 0.74, y + s * 0.3, s * 0.1, 0, 7); ctx.fill();
+    }
+    if (kind === 'local') {                     // ONE screen, TWO controllers
+      tv(-16, -20, 32);
+      pad(-25, 9, 20); pad(5, 9, 20);
+    } else if (kind === 'online') {              // TWO screens, TWO controllers, linked
+      tv(-32, -18, 24); tv(8, -18, 24);
+      pad(-30, 9, 17); pad(13, 9, 17);
+      ctx.strokeStyle = 'rgba(154, 215, 255, 0.85)'; ctx.lineWidth = 1.5;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(-8, -6); ctx.lineTo(8, -6); ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (kind === 'bot') {                 // ONE screen, ONE controller, ONE AI partner
+      tv(-16, -20, 32);
+      pad(-10, 9, 20);
+      ctx.fillStyle = '#a8c8d8';
+      ctx.beginPath(); ctx.arc(14, -8, 9, 0, 7); ctx.fill();
+      ctx.fillStyle = '#14141c';
+      ctx.beginPath(); ctx.arc(11, -9, 1.6, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(17, -9, 1.6, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#a8c8d8'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(14, -17); ctx.lineTo(14, -21); ctx.stroke();
+      ctx.beginPath(); ctx.arc(14, -22, 1.6, 0, 7); ctx.fill();
+    }
+    ctx.restore();
+  }
   function drawMenu(ctx, menu, sel) {
     var mp = DA.input.mousePos ? DA.input.mousePos() : null;
     for (var i = 0; i < menu.length; i++) {
@@ -1427,6 +1472,24 @@
       ctx.lineWidth = on || b.primary ? 2.5 : 1.5;
       ctx.stroke();
       ctx.textAlign = 'left';
+      if (b.icon) {                                    // a little picture of how the mode plays
+        drawModeIcon(ctx, b.icon, b.x + 44, b.y + b.h / 2);
+        ctx.font = 'bold 19px monospace';
+        ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
+        ctx.fillText(b.label, b.x + 92, b.y + b.h / 2 - 4);
+        if (b.state) {
+          ctx.font = '13px monospace';
+          ctx.fillStyle = b.locked ? '#4a4a58' : '#8888a0';
+          ctx.fillText(b.state, b.x + 92, b.y + b.h / 2 + 18);
+        }
+        if (on) {
+          ctx.textAlign = 'left';
+          ctx.font = 'bold 19px monospace';
+          ctx.fillStyle = '#7ee081';
+          ctx.fillText('›', b.x + 5, b.y + b.h / 2 + 7);
+        }
+        continue;
+      }
       ctx.font = 'bold ' + (b.primary ? 22 : 19) + 'px monospace';
       ctx.fillStyle = b.locked ? '#4a4a58' : b.color;
       ctx.fillText(b.label, b.x + 18, b.y + b.h / 2 + 7);
@@ -2015,6 +2078,14 @@
         ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
         ctx.fillText('⚙ SETTINGS', DA.W / 2, 288);
         setSel = drawMenu(ctx, settingsMenu, setSel);
+        DA.drawFxOver(ctx);
+        drawScreenFx(ctx);
+        return;
+      }
+      if (showCoopChoice) {
+        ctx.font = 'bold 26px monospace'; ctx.fillStyle = '#7ee081';
+        ctx.fillText('👥 HOW ARE YOU PLAYING?', DA.W / 2, 288);
+        coopSel = drawMenu(ctx, coopMenu, coopSel);
         DA.drawFxOver(ctx);
         drawScreenFx(ctx);
         return;
