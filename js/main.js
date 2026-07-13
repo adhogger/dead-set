@@ -1171,10 +1171,14 @@
     // broadcast rig; four things all staring at the same two players doesn't.
     ctx.fillStyle = 'rgba(240, 235, 200, 0.035)';
     var corners = [[A.x0, A.y0], [A.x1, A.y0], [A.x0, A.y1], [A.x1, A.y1]];
+    // base angle points from each corner straight at the arena's center, so
+    // the sweep oscillates across the interior instead of drifting outward
+    // past the wall (the bottom-right corner used to do exactly that — its
+    // old hand-tuned offset pointed the beam away from the floor entirely)
+    var CORNER_BASE = [Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4, -3 * Math.PI / 4];
     for (var li = 0; li < 4; li++) {
       var cpos = corners[li];
-      var a = 0.9 + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li) * 0.55 +
-              (cpos[0] > DA.W / 2 ? 1.35 : 0) + (cpos[1] > DA.H / 2 ? -1.5 : 0);
+      var a = CORNER_BASE[li] + Math.sin(sweep * (li % 2 ? -1.3 : 1) + li * 1.7) * 0.6;
       ctx.beginPath();
       ctx.moveTo(cpos[0], cpos[1]);
       ctx.arc(cpos[0], cpos[1], 900, a - 0.13, a + 0.13);
@@ -1287,6 +1291,7 @@
     ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; ctx.stroke();
     ctx.restore();
+    DA.drawCorpseLimbs(ctx, p.x, p.y, p.r, 2.2);
     ctx.fillStyle = '#333';                                 // the dropped gun
     ctx.fillRect(p.x + 14, p.y + 6, 11, 5);
   }

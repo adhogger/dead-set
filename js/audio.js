@@ -209,10 +209,10 @@
       lub(beatNext, 0.55 + k * 0.35);
       if (k > 0.06) {                            // the groove kicks in once a wave is live
         var gStep = beatNo % GROOVE_BASS.length;
-        grooveNote(beatNext, GROOVE_BASS[gStep], T * 0.85, 0.14 + k * 0.09,
+        grooveNote(beatNext, GROOVE_BASS[gStep], T * 0.85, 0.26 + k * 0.16,
                   'sawtooth', 180, 1200 + k * 1400);
         if (GROOVE_ARP[gStep] != null && k > 0.35) {   // arp accents once things heat up
-          grooveNote(beatNext + T * 0.5, GROOVE_ARP[gStep], T * 0.4, 0.07 + k * 0.05,
+          grooveNote(beatNext + T * 0.5, GROOVE_ARP[gStep], T * 0.4, 0.13 + k * 0.09,
                     'square', 1600, 3000);
         }
       }
