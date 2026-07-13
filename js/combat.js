@@ -70,6 +70,10 @@
           else st.bullets.splice(j, 1);
           e.hp -= (b.dmg || 1);
           e.hitFlash = 0.12;
+          // a pained groan on impact — reuses the same low ambient-groan
+          // voice, gated so a minigun spraying six zombies at once doesn't
+          // stack into a wall of noise
+          if (DA.audio && DA.audio.groan && Math.random() < 0.3) DA.audio.groan();
           if (st.stats && !b.bot) st.stats.hits++;   // accuracy tracks the human
           if (b.splash) DA.explodeSplash(st, b.x, b.y, b.splash, b.splashR, e);
           if (e.hp <= 0) {
