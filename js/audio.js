@@ -136,15 +136,15 @@
   };
 
   // ---- music: the show's pulse is literally a pulse ----
-  // A lookahead scheduler beats a slow heartbeat that quickens with the horde:
-  // an empty set idles near 40bpm, a packed one races toward 120. Hi-hats
-  // sneak in on top as the pressure climbs; the boss adds a dark stab. On
-  // death the heart stumbles, slows, and gives out before the fade.
+  // A lookahead scheduler beats a single, regular thump that DOUBLES in rate
+  // as the horde grows, then doubles again once it's a boss fight — one
+  // steady heart racing, not a lub-dub. Hi-hats sneak in on top as the
+  // pressure climbs; the boss adds a dark stab. On death the heart stumbles,
+  // slows, and gives out before the fade.
   function hz(m) { return 440 * Math.pow(2, (m - 69) / 12); }
-  function lub(t, vol) {                         // the two-part thump — FELT, not implied
-    noteAt(t, 62, 0.16, 'sine', vol, 30);
-    noteAt(t, 110, 0.09, 'triangle', vol * 0.45, 70);   // overtone so phone speakers carry it
-    noteAt(t + 0.14, 52, 0.14, 'sine', vol * 0.75, 28);
+  function thump(t, vol) {                       // ONE beat — felt, not implied
+    noteAt(t, 62, 0.15, 'sine', vol, 30);
+    noteAt(t, 110, 0.08, 'triangle', vol * 0.45, 70);   // overtone so phone speakers carry it
   }
   function intensity() {                         // 0..1 from the horde; -1 while dying
     var st = DA.state;
@@ -166,14 +166,16 @@
       if (k < 0) {                               // dying: the heart gives out
         var st = DA.state;
         var gone = st.deathT == null ? 1 : DA.clamp(1 - st.deathT / (DA.DEATH_T || 3.8), 0, 1);
-        if (gone < 0.72) lub(beatNext, 0.55 * (1 - gone));
+        if (gone < 0.72) thump(beatNext, 0.55 * (1 - gone));
         beatNext += 0.8 + gone * 1.4;            // each beat further apart, then nothing
         beatNo++;
         continue;
       }
-      // in combat the heart LOCKS to 123bpm and pounds; menus idle softly
-      var T = k <= 0.06 ? 1.5 : 60 / 123;
-      lub(beatNext, k <= 0.06 ? 0.22 : 0.55 + k * 0.35);
+      // in combat the heart LOCKS to 123bpm, then DOUBLES, then DOUBLES AGAIN
+      // as the horde thickens — one steady beat racing, not a bigger thump
+      var T123 = 60 / 123;
+      var T = k <= 0.06 ? 1.5 : (k >= 0.85 ? T123 / 4 : (k >= 0.5 ? T123 / 2 : T123));
+      thump(beatNext, k <= 0.06 ? 0.22 : 0.55 + k * 0.35);
       if (k > 0.35) {                            // hats sneak in over the beat
         var sub = k > 0.65 ? 4 : 2;
         for (var h = 1; h < sub; h++) noiseAt(beatNext + (T / sub) * h, 0.025, 0.03 + k * 0.045, 7000);
